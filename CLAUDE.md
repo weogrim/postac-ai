@@ -1,14 +1,14 @@
-# CLAUDE.md — postac.ai (new)
+# CLAUDE.md — postac.ai
 
-Wskazówki dla Claude Code przy pracy w tym folderze.
+Wskazówki dla Claude Code przy pracy w tym repo.
 
 ## Projekt
 
-`postac.ai` — polski klon characters.ai (czat z postaciami AI). Ten folder to **aktywny rebuild** pod Laravel 13 / PHP 8.5 / Postgres + pgvector / Filament 5 / `laravel/ai`. Poprzednia wersja żyje w `../legacy/` (Laravel 10, Filament 3, MySQL) i jest **read-only**: służy wyłącznie jako referencja co przenieść i jak wyglądały niuanse biznesowe.
+`postac.ai` — polski klon characters.ai (czat z postaciami AI). Laravel 13 / PHP 8.5 / Postgres 16 + pgvector / Filament 5 / `laravel/ai` / FrankenPHP + Octane / HTMX 4 + DaisyUI 5.
 
-Cały plan migracji + konkretne odejścia od legacy znajdują się w `/home/darek/.claude/plans/breezy-moseying-wave.md`. To jest źródło prawdy — przy każdej fazie wracaj do niego.
+Stara wersja (Laravel 10 / Filament 3 / MySQL) była w `legacy/`, wyrzucona po refactoringu. Plan migracji (faza 0–9, ✅ zamknięty 2026-04-25) w `/home/darek/.claude/plans/breezy-moseying-wave.md`.
 
-**Zasada refaktoru**: nie portujemy 1:1. Każdy legacy wzorzec poddajemy pod wątpliwość, przed portem robimy krótki reality check i proponujemy modernizację (zobacz memory: `feedback_challenge_decisions.md`).
+**Zasada przy zmianach**: kwestionuj decyzje, sprawdzaj aktualną dokumentację paczek, nie wciskaj na siłę abstrakcji których nie potrzebujesz (zobacz memory: `feedback_challenge_decisions.md`).
 
 ## Stack
 
@@ -26,39 +26,39 @@ Cały plan migracji + konkretne odejścia od legacy znajdują się w `/home/dare
 
 ## Komendy
 
-**NIE używamy Sail**. Wszystko idzie przez `docker exec` do kontenera `new-app-1` pod userem `dev` (UID 1000, żeby pliki na zamontowanym volumenie miały właściwe uprawnienia).
+**NIE używamy Sail**. Wszystko idzie przez `docker exec` do kontenera `postac-ai-app-1` pod userem `dev` (UID 1000, żeby pliki na zamontowanym volumenie miały właściwe uprawnienia).
 
 ```bash
 # Artisan / composer / npm
-docker exec -u dev new-app-1 php artisan migrate
-docker exec -u dev new-app-1 composer require <paczka>
-docker exec -u dev new-app-1 npm run dev
+docker exec -u dev postac-ai-app-1 php artisan migrate
+docker exec -u dev postac-ai-app-1 composer require <paczka>
+docker exec -u dev postac-ai-app-1 npm run dev
 
 # Tinker (XDG_CONFIG_HOME fix — domyślnie psysh próbuje /config/psysh które jest read-only)
-docker exec -u dev -e XDG_CONFIG_HOME=/tmp new-app-1 php artisan tinker
+docker exec -u dev -e XDG_CONFIG_HOME=/tmp postac-ai-app-1 php artisan tinker
 
 # Po npm run build — ZAWSZE octane:reload, bo worker cachuje Vite manifest w pamięci
-docker exec -u dev new-app-1 npm run build && docker exec -u dev new-app-1 php artisan octane:reload
+docker exec -u dev postac-ai-app-1 npm run build && docker exec -u dev postac-ai-app-1 php artisan octane:reload
 
 # Po zmianach .env — octane:reload może NIE wystarczyć (env może zostać cachowane w master process FrankenPHP).
 # Jeśli zmienna nie "podłapana" (np. Cashier widzi pusty STRIPE_SECRET mimo wartości w .env):
-docker restart new-app-1
+docker restart postac-ai-app-1
 
 # Testy / statyka / lint
-docker exec -u dev new-app-1 php artisan test
-docker exec -u dev new-app-1 vendor/bin/phpstan analyse --memory-limit=512M
-docker exec -u dev new-app-1 vendor/bin/pint --test
+docker exec -u dev postac-ai-app-1 php artisan test
+docker exec -u dev postac-ai-app-1 vendor/bin/phpstan analyse --memory-limit=512M
+docker exec -u dev postac-ai-app-1 vendor/bin/pint --test
 
 # Baza testowa: jednorazowo (testy używają .env.testing → postacai_testing)
-docker exec new-postgres-1 psql -U postacai -d postgres -c "CREATE DATABASE postacai_testing OWNER postacai;"
+docker exec postac-ai-postgres-1 psql -U postacai -d postgres -c "CREATE DATABASE postacai_testing OWNER postacai;"
 
 # Stripe CLI (webhook lokalnie) — uruchamiane na hoście, nie w kontenerze
 stripe listen --forward-to localhost:43080/stripe/webhook
 
 # Diagnostyka
 docker ps
-docker logs new-app-1 --tail 50
-docker exec new-app-1 supervisorctl status
+docker logs postac-ai-app-1 --tail 50
+docker exec postac-ai-app-1 supervisorctl -c /etc/supervisor/conf.d/supervisord.conf status
 ```
 
 **Porty hosta** (przestawione na 43xxx żeby nie kolidowały z innymi projektami): app `43080`, Postgres `43432`, Redis `43379`, Mailpit SMTP `43025` / UI `43825`, Adminer `43081`. Wewnątrz kontenerów procesy nasłuchują na oryginalnych portach (8080/5432/6379/1025/8025), w sieci Dockera używaj ich (`postgres:5432`, `redis:6379`, `mailpit:1025` itd.).
@@ -68,7 +68,7 @@ docker exec new-app-1 supervisorctl status
 ## Konwencje
 
 - **Polski** w user-facing stringach (nazwach pakietów, komunikatach błędów dla użytkownika, widokach). Kod, komentarze (minimalne), nazwy klas po angielsku.
-- **Kwestionuj legacy.** Przed portem pliku z `../legacy/` wypisz w głowie: co jest archaiczne, co hardcoded, co da się typowo/enumowo/modernie. Dopiero potem pisz nowy kod.
+- **Kwestionuj decyzje.** Przed dodaniem abstrakcji / paczki wypisz: co jest archaiczne, co hardcoded, co da się typowo/enumowo/modernie. Dopiero potem pisz kod.
 - **Sprawdzaj aktualną dokumentację paczek** (WebFetch / repo) — `laravel/ai` jest pre-1.0 i API może się zmieniać, Filament 5 jest świeżo po wydaniu.
 - **Unikaj niepotrzebnych komentarzy** w kodzie — nazwy robią robotę. Komentarz tylko gdy ukryty constraint / workaround.
 - **Testy Pest** (nie PHPUnit). Factories obowiązkowo dla każdego modelu.
@@ -181,7 +181,7 @@ htmx.config.transitions = true;  // View Transitions API
 - **Stripe CLI do dev webhooków**: `stripe listen --forward-to localhost:43080/stripe/webhook` (lokalnie na hoście, nie w kontenerze). Output wypluwa `whsec_...` → wkleić do `STRIPE_WEBHOOK_SECRET` w `.env`. `stripe trigger checkout.session.completed` odgrywa event. Karty testowe: `4242 4242 4242 4242` (sukces), `4000 0000 0000 0002` (decline).
 - **`.env.testing` potrzebuje `STRIPE_PRICE_*` placeholderów** — `config('billing.prices.X')` zwraca null bez nich, a test porównuje priceId ze stringiem. Placeholder wartości (`price_test_five` itd.) wystarczają, faktyczne sandbox IDs są w `.env`.
 - **Cashier + PHPStan**: `getUserByStripeId()` w parencie zwraca `Billable|null` (trait, nie klasa) → PHPStan `class.notFound` przy `$user->id`. Fix: override w naszej klasie zwracający `?User` z `/** @var User|null $user */` inline docblock nad `parent::getUserByStripeId(...)`. `instanceof User` na tym zwraca `instanceof.alwaysFalse` — trzeba docblock cast.
-- **Octane cache routes**: po zmianie `routes/web.php` trzeba `docker exec new-app-1 php artisan octane:reload` albo `docker restart new-app-1` — bez tego dev curl serwuje stare routes. Testy Pest bootują Laravel świeżo, nie ma problemu.
+- **Octane cache routes**: po zmianie `routes/web.php` trzeba `docker exec postac-ai-app-1 php artisan octane:reload` albo `docker restart postac-ai-app-1` — bez tego dev curl serwuje stare routes. Testy Pest bootują Laravel świeżo, nie ma problemu.
 - **Faktury**: Faza 9 wpina `$user->redirectToBillingPortal(...)` — Stripe hostowany portal pokazuje listę faktur z PDF + zarządza metodą płatności + anuluje sub. Zero własnego kodu na PDFy i listę. Link tylko dla userów z `stripe_id != null`.
 
 ### Filament admin + role (Faza 8)
@@ -213,7 +213,7 @@ htmx.config.transitions = true;  // View Transitions API
 - **Sentry backend** wired przez `Integration::handles($exceptions)` w `bootstrap/app.php::withExceptions` (pierwsza linia — inni renderers po niej). Config w `config/sentry.php` (published). DSN przez `SENTRY_LARAVEL_DSN` env. Bez DSN SDK no-op. **Sentry traces_sample_rate nie ustawione** (null) → żadnego tracingu w prod, same errors. Jeśli chcemy: `SENTRY_TRACES_SAMPLE_RATE=0.1` (10%) przy growth.
 - **Sentry frontend** (`@sentry/browser` 10.50) init w `resources/js/app.js` zaciąga DSN + env + release z meta tagów injected przez `layouts/app.blade.php`. Bez DSN init się nie wywołuje (guard `if (dsn) Sentry.init(...)`). `tracesSampleRate: 0` — tylko errors. Dodaje **~152KB gzip** do bundla JS (462KB raw).
 - **Billing portal** = Stripe hostowany. `GET /me/billing` → `BillingPortalController::__invoke` → `abort_unless($user->hasStripeId(), 404)` → `$user->redirectToBillingPortal(route('profile.show'))`. Portal pokazuje: invoice listę (PDF download), change payment method, cancel subscription. Link w navbar **conditional** (`@if ($user?->hasStripeId())`) — bez `stripe_id` (tzn. nic nie kupił) nie pokazujemy.
-- **Queue worker** w supervisord.conf. Diagnostyka: `docker exec new-app-1 supervisorctl status` — **po rebuild obrazu** (dodane sekcje `[unix_http_server]` + `[rpcinterface:supervisor]` + `[supervisorctl]` do `Docker/supervisord.conf`). Przed rebuild: `tail storage/logs/worker.log` po dispatch'u + `php artisan queue:failed`.
+- **Queue worker** w supervisord.conf. Diagnostyka: `docker exec postac-ai-app-1 supervisorctl -c /etc/supervisor/conf.d/supervisord.conf status`. Flag `-c` jest **wymagany** bo socket leży w `/tmp/supervisor.sock` (zamiast domyślnego `/var/run/`), a default `/etc/supervisor/supervisord.conf` w obrazie wskazuje na `/var/run/`. Alternatywnie: `tail storage/logs/worker.log` po dispatch'u + `php artisan queue:failed`.
 - **Konwencja: cleaning orphan empty character messages** — jeśli stream zawiedzie, empty character Message zostaje w DB (bo store tworzy go zanim stream wystartuje). Stream query w `MessageController@stream` **filtruje** je z historii (empty-content character → wykluczany z UserMessage/AssistantMessage). OpenRouter/OpenAI rzuca **400** na empty assistant content — absolute wymóg. Jeśli DB urośnie — okazjonalny `DELETE FROM messages WHERE sender_role='character' AND content='' AND created_at < now() - interval '1 hour'`.
 
 #### HTMX 4 streaming lifecycle (doprecyzowane po Fazie 9)
