@@ -77,6 +77,11 @@ class MessageController extends Controller
 
         $conversation = $chat->messages()
             ->where('id', '!=', $characterMessage->id)
+            ->where(fn ($q) => $q
+                ->where('sender_role', SenderRole::User->value)
+                ->orWhere(fn ($q) => $q
+                    ->where('sender_role', SenderRole::Character->value)
+                    ->where('content', '!=', '')))
             ->latest()
             ->take($settings->historyLength + 1)
             ->get()

@@ -115,8 +115,9 @@
 
             let eventSource = null;
 
-            form.addEventListener('htmx:after:request', (e) => {
-                if (!e.detail.successful) return;
+            form.addEventListener('htmx:after:swap', (e) => {
+                const status = e.detail?.ctx?.response?.status ?? 0;
+                if (status < 200 || status >= 300) return;
                 input.value = '';
                 scrollToBottom();
 

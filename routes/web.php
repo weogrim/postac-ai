@@ -10,6 +10,7 @@ use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\SocialAuthController;
 use App\Http\Controllers\Auth\VerifyEmailController;
+use App\Http\Controllers\BillingPortalController;
 use App\Http\Controllers\BuyController;
 use App\Http\Controllers\CharacterController;
 use App\Http\Controllers\ChatController;
@@ -19,6 +20,7 @@ use App\Http\Controllers\PasswordController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StripeWebhookController;
 use Illuminate\Support\Facades\Route;
+use Laravel\Cashier\Http\Middleware\VerifyWebhookSignature;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
@@ -56,6 +58,7 @@ Route::middleware('auth')->group(function (): void {
         Route::delete('/me', [ProfileController::class, 'destroy'])->name('profile.destroy');
         Route::patch('/me/password', [PasswordController::class, 'update'])->name('password.update');
         Route::get('/me/limits', [ProfileController::class, 'limits'])->name('profile.limits');
+        Route::get('/me/billing', BillingPortalController::class)->name('billing.portal');
 
         Route::get('/characters/create', [CharacterController::class, 'create'])->name('character.create');
         Route::post('/characters', [CharacterController::class, 'store'])->name('character.store');
@@ -75,5 +78,5 @@ Route::middleware('auth')->group(function (): void {
 });
 
 Route::post('/stripe/webhook', [StripeWebhookController::class, 'handleWebhook'])
-    ->middleware(\Laravel\Cashier\Http\Middleware\VerifyWebhookSignature::class)
+    ->middleware(VerifyWebhookSignature::class)
     ->name('cashier.webhook');

@@ -4,6 +4,13 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    @if ($sentryDsn = config('sentry.dsn'))
+        <meta name="sentry-dsn" content="{{ $sentryDsn }}">
+        <meta name="sentry-environment" content="{{ config('sentry.environment') ?? app()->environment() }}">
+        @if ($release = config('sentry.release'))
+            <meta name="sentry-release" content="{{ $release }}">
+        @endif
+    @endif
 
     <title>{{ $title ?? config('app.name', 'postac.ai') }}</title>
 

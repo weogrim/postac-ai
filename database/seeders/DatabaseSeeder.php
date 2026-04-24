@@ -28,9 +28,7 @@ class DatabaseSeeder extends Seeder
 
     private function seedRoles(): void
     {
-        foreach (['super_admin', 'admin'] as $name) {
-            Role::findOrCreate($name, 'web');
-        }
+        Role::findOrCreate('super_admin', 'web');
     }
 
     private function seedAdmin(): User

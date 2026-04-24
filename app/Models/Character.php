@@ -21,6 +21,21 @@ class Character extends Model implements MediableInterface
     /** @use HasFactory<CharacterFactory> */
     use HasFactory, HasUlids, Mediable, SoftDeletes;
 
+    protected static function booted(): void
+    {
+        static::deleting(function (Character $character): void {
+            if ($character->isForceDeleting()) {
+                return;
+            }
+
+            $character->chats()->each(fn (Chat $chat) => $chat->delete());
+        });
+
+        static::restoring(function (Character $character): void {
+            $character->chats()->onlyTrashed()->restore();
+        });
+    }
+
     public function avatarUrl(string $variant = 'square'): string
     {
         $media = $this->getMedia('avatar')->first();

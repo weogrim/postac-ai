@@ -34,6 +34,16 @@ docker exec -u dev new-app-1 php artisan migrate
 docker exec -u dev new-app-1 composer require <paczka>
 docker exec -u dev new-app-1 npm run dev
 
+# Tinker (XDG_CONFIG_HOME fix — domyślnie psysh próbuje /config/psysh które jest read-only)
+docker exec -u dev -e XDG_CONFIG_HOME=/tmp new-app-1 php artisan tinker
+
+# Po npm run build — ZAWSZE octane:reload, bo worker cachuje Vite manifest w pamięci
+docker exec -u dev new-app-1 npm run build && docker exec -u dev new-app-1 php artisan octane:reload
+
+# Po zmianach .env — octane:reload może NIE wystarczyć (env może zostać cachowane w master process FrankenPHP).
+# Jeśli zmienna nie "podłapana" (np. Cashier widzi pusty STRIPE_SECRET mimo wartości w .env):
+docker restart new-app-1
+
 # Testy / statyka / lint
 docker exec -u dev new-app-1 php artisan test
 docker exec -u dev new-app-1 vendor/bin/phpstan analyse --memory-limit=512M
@@ -174,9 +184,59 @@ htmx.config.transitions = true;  // View Transitions API
 - **Octane cache routes**: po zmianie `routes/web.php` trzeba `docker exec new-app-1 php artisan octane:reload` albo `docker restart new-app-1` — bez tego dev curl serwuje stare routes. Testy Pest bootują Laravel świeżo, nie ma problemu.
 - **Faktury**: Faza 9 wpina `$user->redirectToBillingPortal(...)` — Stripe hostowany portal pokazuje listę faktur z PDF + zarządza metodą płatności + anuluje sub. Zero własnego kodu na PDFy i listę. Link tylko dla userów z `stripe_id != null`.
 
-### Dalsze sekcje (uzupełniamy z kolejnymi fazami)
+### Filament admin + role (Faza 8)
 
-Filament admin — dopiszemy gdy powstanie.
+- **Panel pod `/admin`** (Filament 5, AdminPanelProvider). Brand: `postac.ai — admin`, primary color Indigo. Auth middleware: standardowy `Authenticate` + Filament login page. `User::canAccessPanel() → hasRole('super_admin')` (jedyna rola — moderator/admin dojdą jeśli trzeba).
+- **Filament 5 ma nową strukturę resource'ów**: generator tworzy `Resources/<Plural>/<Resource>.php` + `Resources/<Plural>/{Schemas/<Form>.php, Tables/<Table>.php, Pages/{List,Create,Edit}*.php}`. Auto-discover w AdminPanelProvider łapie każdy zagnieżdżony resource. Jeśli resource ma być read-only, usuwamy `Pages/Create*.php` + `Pages/Edit*.php` + override `canCreate(): bool { return false; }`.
+- **Schema API** (`Filament\Schemas\Schema`) zamiast Filament 3 `Filament\Forms\Form`. Komponenty dalej z namespace `Filament\Forms\Components\*` ale składanie przez `$schema->components([...])`.
+- **Resource'y**:
+  - `CharacterResource` — **full CRUD** moderacyjny. Form: TextInput name, Select author (relationship z `getOptionLabelFromRecordUsing`), Textarea prompt. Table: ImageColumn avatar (via `avatarUrl('thumb')` getStateUsing), chats_count counts, TrashedFilter + bulk delete/force/restore. Avatar upload pominięty (Mediable polimorficzny wymaga customowego flow — admin moderuje name/prompt).
+  - `UserResource` — **list + edit bez create/delete**. Rejestracja przez `/register`, delete'a nie robimy (Cashier stripe_id). Form: name, email unique ignoreRecord, email_verified_at DateTimePicker, roles multi-Select via relationship. Table: z IconColumn boolean dla email_verified_at, roles.name badge, counts (characters/chats), stripe_id toggleable.
+  - `ChatResource` — **read-only** + custom `ViewChat` page która renderuje wiadomości jak chat-bubble (sender_role → justify-start/end, primary-500/gray-100 bg). Listing: user.email, character.name, messages_count.
+  - `MessageResource` — **read-only**. Table: created_at, sender_role badge, chat.user.email, chat.character.name, content `limit(80)->tooltip`, model/tokens_usage toggleable. Filtry: sender_role + date range + TrashedFilter.
+  - `MessageLimitResource` — **read-only debug view**. `used / quota` jako złożona kolumna przez `getStateUsing(fn ($r) => "{$r->used} / {$r->quota}")`. Filtry limit_type + model_type.
+- **Spatie Settings page**: `App\Filament\Pages\ManageChatSettings` extends `Filament\Pages\Page`. `mount()` → `form->fill` z `app(ChatSettings::class)`, `save()` → `form->getState()` → cast i `$settings->save()`. PHPStan: `@property Schema $form` docblock (magic prop z `InteractsWithSchemas` trait). Jeśli będzie więcej settings pages → consider `filament/spatie-laravel-settings-plugin`.
+- **Widgety natywne Filament 5** (`ChartWidget`, `StatsOverviewWidget`): `StatsOverviewWidget` (5 cards: userzy/postacie/czaty/wiadomości dziś/aktywne subs), `MessagesPerDayChart` (bar, 30 dni, dual series user/character), `TokenUsageChart` (line, 30 dni, sum). **Query przez `DB::table('messages')`** (nie Eloquent), bo `DB::raw('SUM(...) as total')` + Eloquent nie daje PHPStanowi typu na `$row->total`. `DB::table` zwraca explicit stdClass. Postgres: `DATE_TRUNC('day', created_at)` + `to_char(..., 'YYYY-MM-DD')`. Widgety rejestrowane w `AdminPanelProvider::widgets([...])`.
+- **Shield + Spatie Permission**: `shield:install admin` dodaje plugin do Panel Provider. `shield:generate --all --panel=admin --option=policies_and_permissions` tworzy **6 Policies** (w `app/Policies/`) + **76 permissions** (granular CRUD per resource). **`shield:setup` i `shield:super-admin` wymagają interactive promptów** — skipujemy je. Zamiast `shield:super-admin` używamy **`Gate::before` w AppServiceProvider::boot()**:
+
+  ```php
+  Gate::before(fn (User $user): ?bool => $user->hasRole('super_admin') ? true : null);
+  ```
+
+  Returning `true` omija wszystkie Policy checks; `null` oddaje kontrolę standardowemu gate flow. Seeder (DatabaseSeeder) tworzy rolę `super_admin` i przypisuje do pierwszego usera z `ADMIN_EMAIL`.
+- **Heroicon**: Filament 5 używa `Filament\Support\Icons\Heroicon` enum. **Nie zgaduj nazw** — zawsze grep w `vendor/filament/support/src/Icons/Heroicon.php`. Np. nie ma `OutlinedGauge` (użyj `OutlinedChartBarSquare`), `OutlinedUsers` OK, `OutlinedUserCircle` OK, `OutlinedEnvelope` OK, `OutlinedChatBubbleLeftRight` OK, `OutlinedCog6Tooth` OK.
+- **Testy Filament**: `Livewire::test(<Page>::class)->fillForm([...])->call('create'|'save')->assertHasNoFormErrors()`. Dla actions: `->callAction('delete')`. **Pest closure nie zbindowuje `$this->property` dla PHPStan** — używaj helper function `loginAsAdmin(): User` zwracający usera i local var, zamiast `$this->admin`. `auth()->login($user)` zamiast `test()->actingAs($user)` (Pest TestCall nie ma acting helper).
+
+### Ops / monitoring / billing portal (Faza 9)
+
+- **Cascade soft delete character → chats** przez `Character::booted()` z `static::deleting` (app-level, NIE DB FK). Guard `isForceDeleting()` żeby force delete nie iterował — FK `chats.character_id->cascadeOnDelete()` w migracji i tak hard-usunie chaty. `static::restoring` podnosi `->onlyTrashed()->restore()` chaty z powrotem. Nie dodawaj `cascadeOnDelete` dla soft delete — to inny kontrakt.
+- **Sentry backend** wired przez `Integration::handles($exceptions)` w `bootstrap/app.php::withExceptions` (pierwsza linia — inni renderers po niej). Config w `config/sentry.php` (published). DSN przez `SENTRY_LARAVEL_DSN` env. Bez DSN SDK no-op. **Sentry traces_sample_rate nie ustawione** (null) → żadnego tracingu w prod, same errors. Jeśli chcemy: `SENTRY_TRACES_SAMPLE_RATE=0.1` (10%) przy growth.
+- **Sentry frontend** (`@sentry/browser` 10.50) init w `resources/js/app.js` zaciąga DSN + env + release z meta tagów injected przez `layouts/app.blade.php`. Bez DSN init się nie wywołuje (guard `if (dsn) Sentry.init(...)`). `tracesSampleRate: 0` — tylko errors. Dodaje **~152KB gzip** do bundla JS (462KB raw).
+- **Billing portal** = Stripe hostowany. `GET /me/billing` → `BillingPortalController::__invoke` → `abort_unless($user->hasStripeId(), 404)` → `$user->redirectToBillingPortal(route('profile.show'))`. Portal pokazuje: invoice listę (PDF download), change payment method, cancel subscription. Link w navbar **conditional** (`@if ($user?->hasStripeId())`) — bez `stripe_id` (tzn. nic nie kupił) nie pokazujemy.
+- **Queue worker** w supervisord.conf. Diagnostyka: `docker exec new-app-1 supervisorctl status` — **po rebuild obrazu** (dodane sekcje `[unix_http_server]` + `[rpcinterface:supervisor]` + `[supervisorctl]` do `Docker/supervisord.conf`). Przed rebuild: `tail storage/logs/worker.log` po dispatch'u + `php artisan queue:failed`.
+- **Konwencja: cleaning orphan empty character messages** — jeśli stream zawiedzie, empty character Message zostaje w DB (bo store tworzy go zanim stream wystartuje). Stream query w `MessageController@stream` **filtruje** je z historii (empty-content character → wykluczany z UserMessage/AssistantMessage). OpenRouter/OpenAI rzuca **400** na empty assistant content — absolute wymóg. Jeśli DB urośnie — okazjonalny `DELETE FROM messages WHERE sender_role='character' AND content='' AND created_at < now() - interval '1 hour'`.
+
+#### HTMX 4 streaming lifecycle (doprecyzowane po Fazie 9)
+
+Event order w HTMX 4 (patrz `node_modules/htmx.org/dist/htmx.js` linie 500-555):
+
+1. `htmx:before:request` — przed wysłaniem
+2. `htmx:before:response` — response headers otrzymane, body jeszcze nie przeczytane
+3. `htmx:after:request` — body przeczytane, **ALE przed swapem DOM**
+4. (swap happens here) — `await this.swap(ctx)`
+5. `htmx:after:swap` — DOM zaktualizowany
+6. `htmx:finally:request` — zawsze, nawet przy error
+
+**Dla DOM manipulation po swap (`querySelector` nowo wstawionych elementów) ZAWSZE `htmx:after:swap`**. `htmx:after:request` za wcześnie.
+
+`e.detail` w HTMX 4 to `{ ctx }`. `ctx` ma `response.status`, `response.raw`, `response.headers`, `text`, `status` (lifecycle stringi), `target`, `swap` itd. **NIE** ma `successful`/`failed`/`xhr` jak v2. **Pattern sprawdzania success**:
+
+```js
+const status = e.detail?.ctx?.response?.status ?? 0;
+if (status < 200 || status >= 300) return;
+```
+
+Debugging: `console.log(e.detail.ctx)` — wszystko tam jest.
 
 ## Pliki pod specjalnym nadzorem
 
@@ -214,6 +274,21 @@ Filament admin — dopiszemy gdy powstanie.
 - `app/Providers/AppServiceProvider.php` — `Cashier::ignoreRoutes()` w `register()` (własny route zamiast Cashier default), `ImageManipulator::defineVariant` w `boot()`.
 - `resources/views/buy/{index,success,cancel}.blade.php` — UI billing. `index` ma pricing cards grid; Ten/Premium wyróżnione `ring-primary`/`border-accent`.
 - `resources/views/components/navbar.blade.php` — `Pakiety` link → `/buy`, dropdown profilu dodaje "Kup wiadomości" + "Moje limity".
+- `app/Providers/Filament/AdminPanelProvider.php` — Panel Filament 5, Shield plugin, register Widgets (StatsOverview + 2 ChartWidget), primary color Indigo.
+- `app/Filament/Resources/<Plural>/` — Filament 5 struktura: `<Resource>.php` + `{Schemas,Tables,Pages}/`. Zmiana struktury = edit getPages + canCreate.
+- `app/Filament/Pages/ManageChatSettings.php` — custom Spatie Settings page z `@property Schema $form` docblockiem dla PHPStan.
+- `app/Filament/Widgets/` — natywne Filament ChartWidget (NIE apex-charts), query przez `DB::table` dla Postgres `DATE_TRUNC`.
+- `app/Policies/` — Shield-generated (6 plików), super_admin bypass przez `Gate::before` w `AppServiceProvider::boot`.
+- `app/Providers/AppServiceProvider.php` — `Gate::before` super_admin bypass + `Cashier::ignoreRoutes` + `ImageManipulator::defineVariant`.
+- `resources/views/filament/` — custom Filament views (pages/manage-chat-settings, resources/chats/pages/view-chat).
+- `app/Models/Character.php` — `booted()` hook cascade'uje soft delete na chats + restore z powrotem. Guard `isForceDeleting()`.
+- `app/Http/Controllers/BillingPortalController.php` — `__invoke` redirectuje do Stripe billing portal. 404 bez `stripe_id`.
+- `bootstrap/app.php` — `Integration::handles($exceptions)` **pierwszy wpis** w `withExceptions`, potem własne renderery.
+- `config/sentry.php` — published, wykluczony z Pint auto-format (paczka publikuje bez `declare(strict_types)` — Pint by przebudowywał przy każdym update).
+- `resources/js/app.js` — Sentry init guardowany przez meta tag DSN. Bez meta → no-op.
+- `resources/views/layouts/app.blade.php` — meta tagi Sentry (DSN/env/release) zaciągane z `config('sentry.*')`.
+- `resources/views/components/navbar.blade.php` — link "Faktury i płatności" **conditional** na `$user?->hasStripeId()`.
+- `Docker/supervisord.conf` — wymaga rebuild obrazu po zmianie (`docker compose up -d --build`). Dodane sekcje `[unix_http_server]` + `[supervisorctl]` dla `supervisorctl status` diagnostics.
 
 ## Co może się zmienić
 

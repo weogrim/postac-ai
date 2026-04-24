@@ -54,6 +54,9 @@
                     <li><a href="{{ route('profile.show') }}">Profil</a></li>
                     <li><a href="{{ route('profile.limits') }}">Moje limity</a></li>
                     <li><a href="{{ route('buy.index') }}">Kup wiadomości</a></li>
+                    @if ($user?->hasStripeId())
+                        <li><a href="{{ route('billing.portal') }}">Faktury i płatności</a></li>
+                    @endif
                     <li>
                         <form method="POST" action="{{ route('logout') }}" hx-boost="false">
                             @csrf
