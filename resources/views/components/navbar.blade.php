@@ -13,8 +13,9 @@
             <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 w-52 rounded-box bg-base-100 p-2 shadow-lg">
                 <li><a href="{{ route('home') }}">Strona główna</a></li>
                 @auth
+                    <li><a href="{{ route('buy.index') }}">Pakiety</a></li>
                     <li><a href="{{ route('profile.show') }}">Profil</a></li>
-                    <li><a href="{{ route('profile.limits') }}">Pakiety</a></li>
+                    <li><a href="{{ route('profile.limits') }}">Moje limity</a></li>
                 @endauth
             </ul>
         </div>
@@ -28,7 +29,7 @@
         <ul class="menu menu-horizontal gap-1 px-1">
             <li><a href="{{ route('home') }}" class="{{ request()->routeIs('home') ? 'active' : '' }}">Postacie</a></li>
             @auth
-                <li><a href="{{ route('profile.limits') }}" class="{{ request()->routeIs('profile.limits') ? 'active' : '' }}">Pakiety</a></li>
+                <li><a href="{{ route('buy.index') }}" class="{{ request()->routeIs('buy.*') ? 'active' : '' }}">Pakiety</a></li>
             @endauth
         </ul>
     </div>
@@ -51,7 +52,8 @@
                         <span class="truncate text-xs">{{ $user->email }}</span>
                     </li>
                     <li><a href="{{ route('profile.show') }}">Profil</a></li>
-                    <li><a href="{{ route('profile.limits') }}">Pakiety</a></li>
+                    <li><a href="{{ route('profile.limits') }}">Moje limity</a></li>
+                    <li><a href="{{ route('buy.index') }}">Kup wiadomości</a></li>
                     <li>
                         <form method="POST" action="{{ route('logout') }}" hx-boost="false">
                             @csrf

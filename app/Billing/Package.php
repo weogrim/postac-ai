@@ -39,10 +39,20 @@ enum Package: string
     public function messageLimit(): ?int
     {
         return match ($this) {
+            self::Five => 130,
+            self::Ten => 270,
+            self::Fifteen => 400,
+            self::Premium => null,
+        };
+    }
+
+    public function priceZloty(): int
+    {
+        return match ($this) {
             self::Five => 5,
             self::Ten => 10,
             self::Fifteen => 15,
-            self::Premium => null,
+            self::Premium => 30,
         };
     }
 
@@ -65,10 +75,20 @@ enum Package: string
     public function label(): string
     {
         return match ($this) {
-            self::Five => '5 wiadomości',
-            self::Ten => '10 wiadomości',
-            self::Fifteen => '15 wiadomości',
-            self::Premium => 'Premium (nielimitowane)',
+            self::Five => 'Piątak',
+            self::Ten => 'Dycha',
+            self::Fifteen => 'Piętnastka',
+            self::Premium => 'Premium',
+        };
+    }
+
+    public function tagline(): string
+    {
+        return match ($this) {
+            self::Five => 'Na początek',
+            self::Ten => 'Najczęściej wybierane',
+            self::Fifteen => 'Dla intensywnych',
+            self::Premium => 'Bez limitów',
         };
     }
 }

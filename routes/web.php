@@ -10,12 +10,14 @@ use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\SocialAuthController;
 use App\Http\Controllers\Auth\VerifyEmailController;
+use App\Http\Controllers\BuyController;
 use App\Http\Controllers\CharacterController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\MessageController;
 use App\Http\Controllers\PasswordController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\StripeWebhookController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -64,5 +66,14 @@ Route::middleware('auth')->group(function (): void {
 
         Route::post('/chat/{chat}/messages', [MessageController::class, 'store'])->name('message.store');
         Route::get('/chat/{chat}/messages/stream', [MessageController::class, 'stream'])->name('message.stream');
+
+        Route::get('/buy', [BuyController::class, 'index'])->name('buy.index');
+        Route::post('/buy/{package}', [BuyController::class, 'store'])->name('buy.store');
+        Route::get('/buy/success', [BuyController::class, 'success'])->name('buy.success');
+        Route::get('/buy/cancel', [BuyController::class, 'cancel'])->name('buy.cancel');
     });
 });
+
+Route::post('/stripe/webhook', [StripeWebhookController::class, 'handleWebhook'])
+    ->middleware(\Laravel\Cashier\Http\Middleware\VerifyWebhookSignature::class)
+    ->name('cashier.webhook');

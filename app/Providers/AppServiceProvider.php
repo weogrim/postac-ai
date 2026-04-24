@@ -6,6 +6,7 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Intervention\Image\Image;
+use Laravel\Cashier\Cashier;
 use Plank\Mediable\Facades\ImageManipulator;
 use Plank\Mediable\ImageManipulation;
 
@@ -13,7 +14,7 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        Cashier::ignoreRoutes();
     }
 
     public function boot(): void
