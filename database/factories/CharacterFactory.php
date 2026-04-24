@@ -7,6 +7,8 @@ namespace Database\Factories;
 use App\Models\Character;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Plank\Mediable\Facades\ImageManipulator;
+use Plank\Mediable\Facades\MediaUploader;
 
 /**
  * @extends Factory<Character>
@@ -22,7 +24,30 @@ class CharacterFactory extends Factory
             'user_id' => User::factory(),
             'name' => fake()->name(),
             'prompt' => fake()->paragraph(),
-            'avatar_path' => null,
         ];
+    }
+
+    public function withAvatar(): static
+    {
+        return $this->afterCreating(function (Character $character): void {
+            $tmp = tempnam(sys_get_temp_dir(), 'avatar_').'.png';
+
+            $img = imagecreatetruecolor(512, 512);
+            $bg = imagecolorallocate($img, random_int(60, 200), random_int(60, 200), random_int(60, 200));
+            imagefill($img, 0, 0, $bg);
+            imagepng($img, $tmp);
+            imagedestroy($img);
+
+            $media = MediaUploader::fromSource($tmp)
+                ->toDestination('public', 'characters')
+                ->useHashForFilename()
+                ->upload();
+
+            ImageManipulator::createImageVariant($media, 'square');
+
+            $character->attachMedia($media, 'avatar');
+
+            @unlink($tmp);
+        });
     }
 }

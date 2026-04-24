@@ -15,7 +15,6 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->string('name');
             $table->text('prompt');
-            $table->string('avatar_path')->nullable();
             $table->timestamps();
             $table->softDeletes();
             $table->index('deleted_at');

@@ -12,12 +12,25 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Plank\Mediable\Mediable;
+use Plank\Mediable\MediableInterface;
 
-#[Fillable(['user_id', 'name', 'prompt', 'avatar_path'])]
-class Character extends Model
+#[Fillable(['user_id', 'name', 'prompt'])]
+class Character extends Model implements MediableInterface
 {
     /** @use HasFactory<CharacterFactory> */
-    use HasFactory, HasUlids, SoftDeletes;
+    use HasFactory, HasUlids, Mediable, SoftDeletes;
+
+    public function avatarUrl(string $variant = 'square'): string
+    {
+        $media = $this->getMedia('avatar')->first();
+
+        if ($media === null) {
+            return "https://api.dicebear.com/9.x/bottts/svg?seed={$this->id}";
+        }
+
+        return $media->hasVariant($variant) ? $media->findVariant($variant)->getUrl() : $media->getUrl();
+    }
 
     /**
      * @return BelongsTo<User, $this>

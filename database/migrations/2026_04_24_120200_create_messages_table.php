@@ -11,6 +11,7 @@ return new class extends Migration
 {
     public function up(): void
     {
+        DB::statement('DROP TYPE IF EXISTS sender_role CASCADE');
         DB::statement("CREATE TYPE sender_role AS ENUM ('user', 'character')");
 
         Schema::create('messages', function (Blueprint $table) {

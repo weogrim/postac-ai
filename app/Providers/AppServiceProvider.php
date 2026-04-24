@@ -5,22 +5,31 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Intervention\Image\Image;
+use Plank\Mediable\Facades\ImageManipulator;
+use Plank\Mediable\ImageManipulation;
 
 class AppServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
     public function register(): void
     {
         //
     }
 
-    /**
-     * Bootstrap any application services.
-     */
     public function boot(): void
     {
-        //
+        ImageManipulator::defineVariant(
+            'square',
+            ImageManipulation::make(function (Image $image): void {
+                $image->cover(512, 512);
+            })->outputWebpFormat()->setOutputQuality(85),
+        );
+
+        ImageManipulator::defineVariant(
+            'thumb',
+            ImageManipulation::make(function (Image $image): void {
+                $image->cover(96, 96);
+            })->outputWebpFormat()->setOutputQuality(80),
+        );
     }
 }

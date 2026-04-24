@@ -8,3 +8,7 @@ parameters:
         - database
         - routes
         - tests
+    ignoreErrors:
+        -
+            message: '#Static call to instance method Plank\\Mediable\\Facades\\ImageManipulator::defineVariant\(\)#'
+            path: app/Providers/AppServiceProvider.php

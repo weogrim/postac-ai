@@ -10,11 +10,14 @@ use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\SocialAuthController;
 use App\Http\Controllers\Auth\VerifyEmailController;
+use App\Http\Controllers\CharacterController;
+use App\Http\Controllers\ChatController;
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\PasswordController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', fn () => view('welcome'))->name('home');
+Route::get('/', [HomeController::class, 'index'])->name('home');
 
 Route::middleware('guest')->group(function (): void {
     Route::get('/register', [RegisterController::class, 'show'])->name('register');
@@ -50,5 +53,12 @@ Route::middleware('auth')->group(function (): void {
         Route::delete('/me', [ProfileController::class, 'destroy'])->name('profile.destroy');
         Route::patch('/me/password', [PasswordController::class, 'update'])->name('password.update');
         Route::get('/me/limits', [ProfileController::class, 'limits'])->name('profile.limits');
+
+        Route::get('/characters/create', [CharacterController::class, 'create'])->name('character.create');
+        Route::post('/characters', [CharacterController::class, 'store'])->name('character.store');
+
+        Route::get('/chat', [ChatController::class, 'index'])->name('chat.index');
+        Route::post('/chat', [ChatController::class, 'store'])->name('chat.store');
+        Route::get('/chat/{chat}', [ChatController::class, 'show'])->name('chat.show');
     });
 });

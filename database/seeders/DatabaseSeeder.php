@@ -56,7 +56,7 @@ class DatabaseSeeder extends Seeder
         }
 
         $users = User::factory(4)->create()->push($admin);
-        $characters = Character::factory(8)->recycle($users)->create();
+        $characters = Character::factory(8)->withAvatar()->recycle($users)->create();
 
         $users->take(3)->each(function (User $user) use ($characters) {
             $characters->random(2)->each(function (Character $character) use ($user) {

@@ -123,9 +123,22 @@ htmx.config.transitions = true;  // View Transitions API
 - **Logout**: `hx-boost="false"` na form — POST nie jest boostowany przez HTMX, żeby nie było konfliktu CSRF/session cycle.
 - **Konwencje testowe**: `/** @var TestCase $this */` docblock (Pest closure rebind), `uses(RefreshDatabase::class)` top of file, `Mockery` dla Socialite, `Notification::fake()` + `assertSentTo($user, ResetPassword::class, fn (ResetPassword $n) => ...)` dla wyciągnięcia tokenu resetu.
 
+### Home / Character / Chat (Faza 4)
+
+- **Medialibrary**: `plank/laravel-mediable` (nie Spatie). `Character implements MediableInterface + use Mediable`. Upload przez `MediaUploader::fromSource(...)->toDestination('public','characters')->useHashForFilename()->upload()` — zwraca `Media` record. Variant: `ImageManipulator::createImageVariant($media, 'square')`. Attach: `$character->attachMedia($media, 'avatar')`. URL: `$character->avatarUrl('square')` helper z fallbackiem DiceBear SVG.
+- **Warianty zdefiniowane w `AppServiceProvider::boot()`**: `square` (512×512 WebP Q85, `$image->cover(512,512)` = fit-crop center), `thumb` (96×96 WebP Q80). Intervention v3 — GD driver (Imagick nie jest w kontenerze), auto-wybierany przez `intervention/image-laravel`. Optimizer wyłączony w `config/mediable.php` bo brak binariów jpegoptim itd. w obrazie — WebP Q85 jest wystarczające.
+- **Polimorficzny ID**: `mediables` tabela ma `mediable_type` i `mediable_id` jako `string` (NIE bigint) bo User jest int a Character jest ULID. Migracja paczkowa używa `$table->morphs()` → bigint → psuje ULID. **Fix**: `config('mediable.ignore_migrations') => true` + ręczna edycja opublikowanej migracji na `string/string`.
+- **`HomeController::index`** — paginate 24, `latest()`, z eager `['author','media']`. HTMX infinite scroll: `hx-trigger="revealed"` na sentinelu → partial `_character-grid-page`.
+- **Karta postaci** (`<x-character-card>`): `aspect-[3/4]` portret, WebP tło, gradient overlay `from-black/85`, **click-anywhere** przez `<form>` (auth) albo `<a href="/login">` (guest) jako `absolute inset-0 z-10` nad contentem `pointer-events-none`. Hover: `-translate-y-1` + `ring-primary/60`.
+- **`CharacterController`** — `create` form + `store` w `DB::transaction` (Character + opcjonalny upload/variant/attach + `Chat::firstOrCreate`). Po store user leci prosto do `chat.show` z nowo utworzoną postacią (legacy redirectował do home → zero flow).
+- **`ChatController::show`** — `abort_unless($chat->user_id === auth()->id(), 404)` (inline authz, nie Policy). ULID route binding na Chat.
+- **`ChatController::store`** — `firstOrCreate(user_id+character_id)` race-safe dzięki partial unique index z Fazy 1 (`WHERE deleted_at IS NULL`). Walidacja `character_id` przez `Rule::exists`.
+- **Widok czatu**: DaisyUI `drawer lg:drawer-open` — sidebar (lista czatów) zawsze widoczny >= lg, off-canvas < lg. Main area: sticky header (avatar + nazwa), `#messages` scrollable, sticky bottom input **wyłączony** w Fazie 4 (streaming to Faza 5). Bubbles: `chat-start/end` + `chat-bubble-neutral/primary` dla character/user.
+- **Seeder sample data** używa `Character::factory()->withAvatar()->recycle($users)->create()`. State `withAvatar()` generuje solid-color PNG przez GD w tempfile → MediaUploader → createImageVariant → attach. Zero zewnętrznych URLi, testy działają offline.
+
 ### Dalsze sekcje (uzupełniamy z kolejnymi fazami)
 
-Chat flow, limit resolution, billing, Filament admin — dopiszemy gdy powstaną.
+Streaming, limit resolution, billing, Filament admin — dopiszemy gdy powstaną.
 
 ## Pliki pod specjalnym nadzorem
 
@@ -140,8 +153,12 @@ Chat flow, limit resolution, billing, Filament admin — dopiszemy gdy powstaną
 - `routes/{web,console}.php` — routing + schedule (Laravel 13: brak `Kernel.php`). Routy auth są w grupach `guest`/`auth`/`verified`.
 - `app/Auth/SocialProvider.php` — enum OAuth providerów (dziś tylko Google). Nowy provider = nowy case + entry w `config/services.php`.
 - `app/Http/Controllers/Auth/*` — split by concern. Nie dodawaj tam helpera "AuthController" robiącego wszystko.
-- `app/Http/Requests/{Auth,Profile}/*` — walidacja, nie w kontrolerach.
-- `resources/views/components/{navbar,auth-card,form-input}.blade.php` — komponenty UI. Mobile-first, DaisyUI 5.
+- `app/Http/Requests/{Auth,Profile,Character}/*` — walidacja, nie w kontrolerach.
+- `resources/views/components/{navbar,auth-card,form-input,character-card}.blade.php` — komponenty UI. Mobile-first, DaisyUI 5.
+- `app/Providers/AppServiceProvider.php` — `ImageManipulator::defineVariant` (square, thumb) w `boot()`.
+- `config/mediable.php` — `ignore_migrations => true`, `image_optimization.enabled => false`. Exclude'owane z Pint.
+- `database/migrations/2026_04_24_013132_create_mediable_tables.php` — string-based polymorphic ID (nie bigint) dla mixed ULID/int.
+- `docker-compose.yml` — `environment:` dla service `app` dostarcza DB_* entrypointowi (który pollował bez env_file w Fazie 1 i wisiał w loopie).
 - `Docker/{Dockerfile,nginx_default.conf,supervisord.conf}` — infra, zmiana wymaga rebuildu.
 
 ## Co może się zmienić
