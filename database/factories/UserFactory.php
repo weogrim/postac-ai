@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Laravel\Cashier\Subscription;
 
 /**
  * @extends Factory<User>
@@ -43,5 +44,23 @@ class UserFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'email_verified_at' => null,
         ]);
+    }
+
+    /**
+     * Active Cashier subscription — before Faza 7 wires webhooks,
+     * tests need a way to simulate a premium user.
+     */
+    public function premium(): static
+    {
+        return $this->afterCreating(function (User $user): void {
+            Subscription::create([
+                'user_id' => $user->id,
+                'type' => 'default',
+                'stripe_id' => 'sub_'.Str::random(14),
+                'stripe_status' => 'active',
+                'stripe_price' => 'price_premium_test',
+                'quantity' => 1,
+            ]);
+        });
     }
 }

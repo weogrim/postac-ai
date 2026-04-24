@@ -5,7 +5,7 @@
         <input id="chat-drawer" type="checkbox" class="drawer-toggle">
 
         <div class="drawer-content flex flex-col">
-            <div class="mx-auto flex w-full max-w-4xl flex-1 flex-col px-4 py-4 sm:px-6">
+            <div class="mx-auto flex w-full max-w-4xl flex-1 flex-col px-4 py-4 sm:px-6" data-chat data-chat-id="{{ $chat->id }}">
                 <header class="flex items-center gap-3 border-b border-base-300 pb-4">
                     <label for="chat-drawer" class="btn btn-ghost btn-circle btn-sm lg:hidden" aria-label="Pokaż listę czatów">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -36,27 +36,29 @@
                 </div>
 
                 <form
+                    data-chat-form
+                    hx-post="{{ route('message.store', $chat) }}"
+                    hx-target="#messages"
+                    hx-swap="beforeend"
+                    hx-disable="this"
                     class="sticky bottom-0 flex items-end gap-2 border-t border-base-300 bg-base-200 py-4"
-                    hx-boost="false"
-                    onsubmit="event.preventDefault();"
                 >
+                    @csrf
                     <textarea
                         name="content"
                         rows="1"
                         placeholder="Napisz wiadomość..."
                         class="textarea textarea-bordered max-h-40 w-full resize-none"
-                        disabled
+                        required
+                        maxlength="8000"
+                        data-chat-input
                     ></textarea>
-                    <button type="submit" class="btn btn-primary btn-square" disabled aria-label="Wyślij">
+                    <button type="submit" class="btn btn-primary btn-square" aria-label="Wyślij">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 5l7 7-7 7" />
                         </svg>
                     </button>
                 </form>
-
-                <p class="pb-4 text-center text-xs text-base-content/50">
-                    Wysyłanie wiadomości zostanie włączone w kolejnej fazie.
-                </p>
             </div>
         </div>
 
@@ -96,4 +98,70 @@
             </aside>
         </div>
     </div>
+
+    <script>
+        (() => {
+            const root = document.querySelector('[data-chat]');
+            if (!root) return;
+            const chatId = root.dataset.chatId;
+            const messages = document.getElementById('messages');
+            const form = root.querySelector('[data-chat-form]');
+            const input = root.querySelector('[data-chat-input]');
+            const streamUrl = @json(route('message.stream', $chat));
+
+            const scrollToBottom = () => messages.scrollTo({ top: messages.scrollHeight, behavior: 'smooth' });
+
+            scrollToBottom();
+
+            let eventSource = null;
+
+            form.addEventListener('htmx:after:request', (e) => {
+                if (!e.detail.successful) return;
+                input.value = '';
+                scrollToBottom();
+
+                const bubble = messages.querySelector('[data-streaming="true"]');
+                if (!bubble) return;
+
+                if (eventSource) eventSource.close();
+                eventSource = new EventSource(streamUrl);
+
+                eventSource.onmessage = (ev) => {
+                    let payload;
+                    try { payload = JSON.parse(ev.data); } catch { return; }
+
+                    if (payload.stop) {
+                        bubble.removeAttribute('data-streaming');
+                        eventSource.close();
+                        eventSource = null;
+                        return;
+                    }
+                    if (payload.error) {
+                        bubble.textContent = '⚠️ Nie udało się pobrać odpowiedzi. Spróbuj ponownie.';
+                        bubble.removeAttribute('data-streaming');
+                        eventSource.close();
+                        eventSource = null;
+                        return;
+                    }
+                    if (typeof payload.delta === 'string') {
+                        bubble.textContent += payload.delta;
+                        scrollToBottom();
+                    }
+                };
+
+                eventSource.onerror = () => {
+                    bubble.removeAttribute('data-streaming');
+                    eventSource?.close();
+                    eventSource = null;
+                };
+            });
+
+            form.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey && e.target === input) {
+                    e.preventDefault();
+                    form.requestSubmit();
+                }
+            });
+        })();
+    </script>
 @endsection

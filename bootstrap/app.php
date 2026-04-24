@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Exceptions\OutOfMessagesException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -29,5 +30,15 @@ return Application::configure(basePath: dirname(__DIR__))
                     'errors' => Arr::flatten($e->errors()),
                 ], 422)
                 ->header('HX-Reswap', 'none');
+        });
+
+        $exceptions->render(function (OutOfMessagesException $e, Request $request) {
+            if ($request->header('HX-Request') === 'true') {
+                return response()
+                    ->view('htmx.out-of-messages', ['message' => $e->getMessage()], 403)
+                    ->header('HX-Reswap', 'none');
+            }
+
+            return response()->view('errors.out-of-messages', ['message' => $e->getMessage()], 403);
         });
     })->create();

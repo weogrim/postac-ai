@@ -13,6 +13,7 @@ use App\Http\Controllers\Auth\VerifyEmailController;
 use App\Http\Controllers\CharacterController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\MessageController;
 use App\Http\Controllers\PasswordController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
@@ -60,5 +61,8 @@ Route::middleware('auth')->group(function (): void {
         Route::get('/chat', [ChatController::class, 'index'])->name('chat.index');
         Route::post('/chat', [ChatController::class, 'store'])->name('chat.store');
         Route::get('/chat/{chat}', [ChatController::class, 'show'])->name('chat.show');
+
+        Route::post('/chat/{chat}/messages', [MessageController::class, 'store'])->name('message.store');
+        Route::get('/chat/{chat}/messages/stream', [MessageController::class, 'stream'])->name('message.stream');
     });
 });

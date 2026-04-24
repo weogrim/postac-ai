@@ -31,6 +31,11 @@ class MessageLimitFactory extends Factory
         ];
     }
 
+    public function forUser(User $user): static
+    {
+        return $this->state(fn () => ['user_id' => $user->id]);
+    }
+
     public function package(int $quota = 5, ModelType $model = ModelType::Gpt4o): static
     {
         return $this->state(fn () => [

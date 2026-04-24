@@ -43,7 +43,7 @@ docker exec -u dev new-app-1 vendor/bin/pint --test
 docker exec new-postgres-1 psql -U postacai -d postgres -c "CREATE DATABASE postacai_testing OWNER postacai;"
 
 # Stripe CLI (webhook lokalnie) — uruchamiane na hoście, nie w kontenerze
-stripe listen --forward-to localhost:8080/stripe/webhook
+stripe listen --forward-to localhost:43080/stripe/webhook
 
 # Diagnostyka
 docker ps
@@ -51,7 +51,7 @@ docker logs new-app-1 --tail 50
 docker exec new-app-1 supervisorctl status
 ```
 
-**Porty hosta**: app `8080`, Postgres `5432`, Redis `6379`, Mailpit SMTP `1025` / UI `8025`, Adminer `8081`.
+**Porty hosta** (przestawione na 43xxx żeby nie kolidowały z innymi projektami): app `43080`, Postgres `43432`, Redis `43379`, Mailpit SMTP `43025` / UI `43825`, Adminer `43081`. Wewnątrz kontenerów procesy nasłuchują na oryginalnych portach (8080/5432/6379/1025/8025), w sieci Dockera używaj ich (`postgres:5432`, `redis:6379`, `mailpit:1025` itd.).
 
 **Rebuild obrazu** potrzebny gdy: zmienia się `Dockerfile`/`Dockerfile.dev`, dodawane rozszerzenie PHP, zmienia się `supervisord.conf`. Wtedy: `docker compose up -d --build`.
 
@@ -136,9 +136,33 @@ htmx.config.transitions = true;  // View Transitions API
 - **Widok czatu**: DaisyUI `drawer lg:drawer-open` — sidebar (lista czatów) zawsze widoczny >= lg, off-canvas < lg. Main area: sticky header (avatar + nazwa), `#messages` scrollable, sticky bottom input **wyłączony** w Fazie 4 (streaming to Faza 5). Bubbles: `chat-start/end` + `chat-bubble-neutral/primary` dla character/user.
 - **Seeder sample data** używa `Character::factory()->withAvatar()->recycle($users)->create()`. State `withAvatar()` generuje solid-color PNG przez GD w tempfile → MediaUploader → createImageVariant → attach. Zero zewnętrznych URLi, testy działają offline.
 
+### Streaming / FrankenPHP + Octane / SSE (Faza 5)
+
+- **App server**: **FrankenPHP przez `laravel/octane`** (worker mode), nie nginx + php-fpm. Obraz `dunglas/frankenphp:php8.5` (Debian bookworm), Caddy wbudowany, PHP jako SAPI. `supervisord` zarządza `octane:start --server=frankenphp --workers=auto --max-requests=500` + queue + cron. `OCTANE_SERVER=frankenphp` w `.env`.
+- **Octane gotchas do pilnowania**: worker mode = app boots once i obsługuje wiele requestów. `AppServiceProvider::boot` wykonuje się raz (wariantów Mediable/Intervention nie trzeba re-rejestrować — `defineVariant` jest idempotent). **Nie używaj statycznych properties** do per-request state. Jeśli paczka trzyma singleton z request-scoped danymi (typu token aktualnego usera), potrzebny listener w `config/octane.php` który resetuje.
+- **Streaming PHP w FrankenPHP**: `response()->stream(closure)` + `echo "data: ...\n\n"` + `if (ob_get_level() > 0) @ob_flush(); flush();` w pętli. **Zero fastcgi_buffering** bo nie ma fastcgi. `ob_flush()` bez aktywnego OB generuje notice który gubi output — dlatego guard. `X-Accel-Buffering: no` i `Cache-Control: no-cache` headers zostają dla safety.
+- **`laravel/ai` 0.6.3 wzorzec** (`AnonymousAgent`): `new AnonymousAgent(instructions: $character->prompt, messages: [new UserMessage('…'), new AssistantMessage('…')], tools: [])->stream(prompt: $latestUserText, provider: Lab::OpenRouter, model: 'openai/gpt-4o-mini')` → `StreamableAgentResponse` (IteratorAggregate). Pętla: `TextDelta->$delta` to słowa do append, `StreamEnd->$usage->$completionTokens` do zapisu po streamie. Fake: `AnonymousAgent::fake(['Response text'])` → FakeTextGateway splituje po spacji, yielduje pełne event sequence (StreamStart→TextStart→TextDelta*→TextEnd→StreamEnd).
+- **Chat SSE flow**: dwa endpointy. `POST /chat/{chat}/messages` (MessageController@store) — w jednej transakcji user Message + empty character Message, zwrot HTML z dwoma bubble'ami. Header `X-Character-Message-Id` identyfikuje streaming bubble. `GET /chat/{chat}/messages/stream` (MessageController@stream) — podnosi ostatni pusty character Message, buduje payload (system prompt + N historii + wrappers z `ChatSettings`), streamuje `laravel/ai`, po finish zapisuje `content` + `tokens_usage`.
+- **Frontend SSE w chat.show**: form HTMX (`hx-post=message.store`, `hx-target=#messages`, `hx-swap=beforeend`, `hx-disable=this`). `form.addEventListener('htmx:after:request', ...)` (HTMX 4 **dwukropki**!) otwiera natywny `EventSource(messageStreamRoute)`. `onmessage` appenduje `payload.delta` do `[data-streaming="true"]` bubble. Na `{stop:true}` removuje atrybut i zamyka ES. Auto-scroll do dołu po każdym chunku. Enter (bez shift) submituje.
+- **Konwencje testowe dla streamingu**: `AnonymousAgent::fake([...])` przed requestem. W Pest `$response->baseResponse->sendContent()` triggeruje closure — ale `ob_flush()` wypycha output ponad test's output buffer (jeden poziom `ob_start` to za mało). Sprawdzamy **DB update** (character Message content + tokens_usage) jako invariant zamiast body capture. SSE output widoczny w stderr Pesta podczas uruchomienia testu.
+- **Route REST**: POST/GET pod `/chat/{chat:ulid}/messages(/stream)`. Authz inline: `abort_unless($chat->user_id === $request->user()?->id, 404)`. ULID route binding.
+
+### Limity wiadomości (Faza 6)
+
+- **Jedna invokable action `App\Actions\ReserveMessageQuota`** robi select + increment atomowo. Premium (`$user->subscribed()` przez Cashier) → zwraca `ChatSettings::defaultModel` bez dotykania DB. Free user → `GrantDailyLimits::forUser()` (on-demand UPSERT) → `DB::transaction + lockForUpdate` → `MessageLimit` query `forUser/forCurrentWindow/available/orderByPriority desc/first` → `increment('used')`. Brak dostępnego limitu → `throw App\Exceptions\OutOfMessagesException`.
+- **On-demand grant zamiast sample nightly**: pierwszy messagę nowego usera sam załatwia grant; cron `RefreshDailyLimits` @ 00:05 jest passive refreshem dla aktywnych userów (nie trigger'em). Daje to użytkownikowi natychmiastowe limity przy pierwszej wiadomości bez listenera na `Registered`.
+- **`GrantDailyLimits` jest idempotentne**: in-window rekord daily → no-op (preserve `used`). Out-of-window (`period_start < now - 1d`) → reset `used=0, period_start=now`, plus aktualizacja `quota/priority` do defaultów. Brak rekordu → insert. Nie dotyka `limit_type=package`. `forUser(User)` dla pojedynczego usera (wywoływane też przez `ReserveMessageQuota`); `forAll(chunk)` dla cron'a.
+- **Config `config/premium.php`**: `daily` to lista `[[model, quota, priority], ...]`. Wyższy priority wygrywa w Reserve (GPT-4o priority 2 wyżej niż GPT-4o mini priority 1). Pakiety mają priority 3 (jeszcze wyżej) — powstają przez webhook Cashier'a w Fazie 7.
+- **`MessageController@store` integracja**: `ReserveMessageQuota` na samym początku, zanim coś tworzymy w DB. Model z action zapisywany na empty character Message (zamiast hardcoded `Gpt4oMini`). Jeśli action rzuca `OutOfMessagesException`:
+  - HTMX (`HX-Request: true`) → 403 + view `htmx/out-of-messages.blade.php` (OOB toast) + `HX-Reswap: none`. User widzi toast, input zostaje z tekstem do retry po kupnie pakietu.
+  - Non-HTMX → 403 + view `errors/out-of-messages.blade.php` (pełna strona z alertem).
+- **`UserFactory::premium()` state** tworzy aktywną Cashier `Subscription` do testów przed Fazą 7. Zawsze tylko w pamięci testów — prod subskrypcje idą przez webhook.
+- **Testy atomicity**: `increments atomically under repeated calls` wymaga `config()->set('premium.daily', [])` na czas testu, żeby on-demand grant nie re-seedował fresh GPT-4o z defaultów (wyższe priority niż presetowane w teście mini) i test faktycznie sprawdzał izolowaną atomowość inkrementu. Memo dla przyszłości: przy testach Reserve które zakładają konkretny stan limitów, wyłączaj default'y.
+- **PHPStan gotcha dla `period_start`**: `casts(): ['period_start' => 'datetime']` nie wystarczy Larastan'owi do wydedukowania typu `Carbon` — musi być `@property Carbon|null $period_start` w docblock modelu. Dodane przy Fazie 6; kolejne kolumny datetime dodawaj z `@property` od razu.
+
 ### Dalsze sekcje (uzupełniamy z kolejnymi fazami)
 
-Streaming, limit resolution, billing, Filament admin — dopiszemy gdy powstaną.
+Billing (Cashier webhook → Package enum → `MessageLimit`), Filament admin — dopiszemy gdy powstaną.
 
 ## Pliki pod specjalnym nadzorem
 
@@ -159,9 +183,17 @@ Streaming, limit resolution, billing, Filament admin — dopiszemy gdy powstaną
 - `config/mediable.php` — `ignore_migrations => true`, `image_optimization.enabled => false`. Exclude'owane z Pint.
 - `database/migrations/2026_04_24_013132_create_mediable_tables.php` — string-based polymorphic ID (nie bigint) dla mixed ULID/int.
 - `docker-compose.yml` — `environment:` dla service `app` dostarcza DB_* entrypointowi (który pollował bez env_file w Fazie 1 i wisiał w loopie).
-- `Docker/{Dockerfile,nginx_default.conf,supervisord.conf}` — infra, zmiana wymaga rebuildu.
+- `Dockerfile` / `Dockerfile.dev` — baza `dunglas/frankenphp:php8.5` (Debian), **bez nginx/php-fpm**. Rebuild gdy zmieniamy rozszerzenia PHP. Zmiana Alpine→Debian wymaga `rm -rf node_modules package-lock.json && npm install` w kontenerze żeby bindingi Rolldown zrekompilowały się pod nową libc.
+- `Docker/supervisord.conf` — octane + queue + cron. Nginx/fpm wykasowane.
+- `config/octane.php` — server `frankenphp`, listenery resetujące state między requestami (domyślne Octane'a). Wykluczone z Pint przez `notName`.
+- `public/frankenphp-worker.php` — entrypoint Octane workera (wymagane przez `octane:start --server=frankenphp`). Wykluczone z Pint.
+- `app/Http/Controllers/MessageController.php` — serce streamingu (store + stream). `store()` injectuje `ReserveMessageQuota` i to ona dyktuje wybrany model.
+- `resources/views/chat/show.blade.php` + `chat/_message.blade.php` — frontend streamingu (EventSource wire-up, `data-streaming` attr, HTMX 4 events z dwukropkami).
+- `app/Actions/{GrantDailyLimits,ReserveMessageQuota}.php` — serce limitów. Atomic select+increment w TX z lockForUpdate, premium bypass przez `$user->subscribed()`, on-demand grant.
+- `app/Jobs/RefreshDailyLimits.php` + `routes/console.php` — nightly cron @ 00:05 iterujący wszystkich userów przez `GrantDailyLimits::forAll`.
+- `config/premium.php` — tylko defaults daily (model/quota/priority). Pakiety dojdą w Fazie 7.
+- `app/Exceptions/OutOfMessagesException.php` + `bootstrap/app.php` (render handler) + `resources/views/{htmx,errors}/out-of-messages.blade.php` — HTMX-aware 403 z toastem / non-HTMX pełna strona.
 
 ## Co może się zmienić
 
-- **Docker server**: w Fazie 5 (streaming) możliwe przejście z nginx+fpm na **FrankenPHP** przez `laravel/octane`, jeśli spike pokaże że nginx buforuje SSE mimo `fastcgi_buffering off`. Dokumentacja w planie refaktoru.
 - Root `../CLAUDE.md` ma stare wzmianki o Sail — nieaktualne. Zostaw dopóki user sam nie usunie, ale nie polegaj na nim.

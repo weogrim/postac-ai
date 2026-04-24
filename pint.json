@@ -1,10 +1,12 @@
 {
     "preset": "laravel",
-    "exclude": [
-        "config/mediable.php",
-        "database/migrations/2026_04_24_013132_create_mediable_tables.php",
-        "database/migrations/2026_04_24_013133_add_variants_to_media.php",
-        "database/migrations/2026_04_24_013134_add_alt_to_media.php"
+    "notName": [
+        "mediable.php",
+        "octane.php",
+        "frankenphp-worker.php",
+        "2026_04_24_013132_create_mediable_tables.php",
+        "2026_04_24_013133_add_variants_to_media.php",
+        "2026_04_24_013134_add_alt_to_media.php"
     ],
     "rules": {
         "declare_strict_types": true,
