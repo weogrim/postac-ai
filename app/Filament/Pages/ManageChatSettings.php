@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
-use App\AI\ModelType;
-use App\Settings\ChatSettings;
+use App\Chat\Enums\ModelType;
+use App\Chat\Settings\ChatSettings;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;

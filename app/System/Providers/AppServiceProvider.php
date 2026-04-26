@@ -1,0 +1,61 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\System\Providers;
+
+use App\Character\Models\CharacterModel;
+use App\Chat\Models\ChatModel;
+use App\Chat\Models\MessageLimitModel;
+use App\Chat\Models\MessageModel;
+use App\User\Models\UserModel;
+use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\ServiceProvider;
+use Intervention\Image\Image;
+use Laravel\Cashier\Cashier;
+use Plank\Mediable\Facades\ImageManipulator;
+use Plank\Mediable\ImageManipulation;
+
+class AppServiceProvider extends ServiceProvider
+{
+    public function register(): void
+    {
+        Cashier::ignoreRoutes();
+        Cashier::useCustomerModel(UserModel::class);
+    }
+
+    public function boot(): void
+    {
+        Relation::enforceMorphMap([
+            'user' => UserModel::class,
+            'character' => CharacterModel::class,
+            'chat' => ChatModel::class,
+            'message' => MessageModel::class,
+            'message_limit' => MessageLimitModel::class,
+        ]);
+
+        Factory::guessFactoryNamesUsing(static function (string $modelName): string {
+            $base = preg_replace('/Model$/', '', class_basename($modelName));
+
+            return 'Database\\Factories\\'.$base.'Factory';
+        });
+
+        Gate::before(fn (UserModel $user): ?bool => $user->hasRole('super_admin') ? true : null);
+
+        ImageManipulator::defineVariant(
+            'square',
+            ImageManipulation::make(function (Image $image): void {
+                $image->cover(512, 512);
+            })->outputWebpFormat()->setOutputQuality(85),
+        );
+
+        ImageManipulator::defineVariant(
+            'thumb',
+            ImageManipulation::make(function (Image $image): void {
+                $image->cover(96, 96);
+            })->outputWebpFormat()->setOutputQuality(80),
+        );
+    }
+}

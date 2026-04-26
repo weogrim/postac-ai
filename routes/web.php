@@ -2,23 +2,26 @@
 
 declare(strict_types=1);
 
-use App\Http\Controllers\Auth\EmailVerificationNoticeController;
-use App\Http\Controllers\Auth\EmailVerificationResendController;
-use App\Http\Controllers\Auth\LoginController;
-use App\Http\Controllers\Auth\NewPasswordController;
-use App\Http\Controllers\Auth\PasswordResetLinkController;
-use App\Http\Controllers\Auth\RegisterController;
-use App\Http\Controllers\Auth\SocialAuthController;
-use App\Http\Controllers\Auth\VerifyEmailController;
-use App\Http\Controllers\BillingPortalController;
-use App\Http\Controllers\BuyController;
-use App\Http\Controllers\CharacterController;
-use App\Http\Controllers\ChatController;
-use App\Http\Controllers\HomeController;
-use App\Http\Controllers\MessageController;
-use App\Http\Controllers\PasswordController;
-use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\StripeWebhookController;
+use App\Auth\Controllers\EmailVerificationNoticeController;
+use App\Auth\Controllers\EmailVerificationResendController;
+use App\Auth\Controllers\LoginController;
+use App\Auth\Controllers\NewPasswordController;
+use App\Auth\Controllers\PasswordResetLinkController;
+use App\Auth\Controllers\RegisterController;
+use App\Auth\Controllers\SocialAuthController;
+use App\Auth\Controllers\VerifyEmailController;
+use App\Billing\Controllers\BillingPortalController;
+use App\Billing\Controllers\BuyCancelController;
+use App\Billing\Controllers\BuyController;
+use App\Billing\Controllers\BuySuccessController;
+use App\Billing\Controllers\StripeWebhookController;
+use App\Character\Controllers\CharacterController;
+use App\Chat\Controllers\ChatController;
+use App\Chat\Controllers\MessageController;
+use App\Chat\Controllers\MessageStreamController;
+use App\Home\Controllers\HomeController;
+use App\User\Controllers\PasswordController;
+use App\User\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Cashier\Http\Middleware\VerifyWebhookSignature;
 
@@ -68,12 +71,12 @@ Route::middleware('auth')->group(function (): void {
         Route::get('/chat/{chat}', [ChatController::class, 'show'])->name('chat.show');
 
         Route::post('/chat/{chat}/messages', [MessageController::class, 'store'])->name('message.store');
-        Route::get('/chat/{chat}/messages/stream', [MessageController::class, 'stream'])->name('message.stream');
+        Route::get('/chat/{chat}/messages/stream', MessageStreamController::class)->name('message.stream');
 
         Route::get('/buy', [BuyController::class, 'index'])->name('buy.index');
         Route::post('/buy/{package}', [BuyController::class, 'store'])->name('buy.store');
-        Route::get('/buy/success', [BuyController::class, 'success'])->name('buy.success');
-        Route::get('/buy/cancel', [BuyController::class, 'cancel'])->name('buy.cancel');
+        Route::get('/buy/success', BuySuccessController::class)->name('buy.success');
+        Route::get('/buy/cancel', BuyCancelController::class)->name('buy.cancel');
     });
 });
 

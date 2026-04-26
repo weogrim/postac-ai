@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\MessageLimits;
 
+use App\Chat\Models\MessageLimitModel;
 use App\Filament\Resources\MessageLimits\Pages\ListMessageLimits;
 use App\Filament\Resources\MessageLimits\Tables\MessageLimitsTable;
-use App\Models\MessageLimit;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
@@ -14,7 +14,7 @@ use Filament\Tables\Table;
 
 class MessageLimitResource extends Resource
 {
-    protected static ?string $model = MessageLimit::class;
+    protected static ?string $model = MessageLimitModel::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedChartBarSquare;
 

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Characters\Tables;
 
-use App\Models\Character;
+use App\Character\Models\CharacterModel;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -24,7 +24,7 @@ class CharactersTable
                 ImageColumn::make('avatar')
                     ->label('Avatar')
                     ->circular()
-                    ->getStateUsing(fn (Character $record): string => $record->avatarUrl('thumb')),
+                    ->getStateUsing(fn (CharacterModel $record): string => $record->avatarUrl('thumb')),
 
                 TextColumn::make('name')
                     ->label('Nazwa')

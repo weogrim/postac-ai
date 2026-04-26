@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\AI\ModelType;
+use App\Chat\Enums\ModelType;
 use Spatie\LaravelSettings\Migrations\SettingsMigration;
 
 return new class extends SettingsMigration

@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
-use App\Models\Character;
-use App\Models\Chat;
-use App\Models\Message;
-use App\Models\User;
+use App\Character\Models\CharacterModel;
+use App\Chat\Models\ChatModel;
+use App\Chat\Models\MessageModel;
+use App\User\Models\UserModel;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
@@ -31,11 +31,11 @@ class DatabaseSeeder extends Seeder
         Role::findOrCreate('super_admin', 'web');
     }
 
-    private function seedAdmin(): User
+    private function seedAdmin(): UserModel
     {
         $email = trim((string) config('auth.admin_email')) ?: 'admin@postac.ai';
 
-        $admin = User::firstOrCreate(
+        $admin = UserModel::firstOrCreate(
             ['email' => $email],
             ['name' => 'Admin', 'password' => bcrypt('password'), 'email_verified_at' => now()]
         );
@@ -47,23 +47,23 @@ class DatabaseSeeder extends Seeder
         return $admin;
     }
 
-    private function seedSampleData(User $admin): void
+    private function seedSampleData(UserModel $admin): void
     {
         if (! app()->environment('local', 'testing')) {
             return;
         }
 
-        $users = User::factory(4)->create()->push($admin);
-        $characters = Character::factory(8)->withAvatar()->recycle($users)->create();
+        $users = UserModel::factory(4)->create()->push($admin);
+        $characters = CharacterModel::factory(8)->withAvatar()->recycle($users)->create();
 
-        $users->take(3)->each(function (User $user) use ($characters) {
-            $characters->random(2)->each(function (Character $character) use ($user) {
-                $chat = Chat::factory()->create([
+        $users->take(3)->each(function (UserModel $user) use ($characters) {
+            $characters->random(2)->each(function (CharacterModel $character) use ($user) {
+                $chat = ChatModel::factory()->create([
                     'user_id' => $user->id,
                     'character_id' => $character->id,
                 ]);
-                Message::factory()->fromUser($chat)->create(['content' => 'Cześć!']);
-                Message::factory()->fromCharacter($chat)->create(['content' => 'Witaj.']);
+                MessageModel::factory()->fromUser($chat)->create(['content' => 'Cześć!']);
+                MessageModel::factory()->fromCharacter($chat)->create(['content' => 'Witaj.']);
             });
         });
     }

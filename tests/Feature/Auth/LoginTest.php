@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Models\User;
+use App\User\Models\UserModel;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
@@ -23,7 +23,7 @@ it('shows the login page', function () {
 
 it('logs in with valid credentials', function () {
     /** @var TestCase $this */
-    $user = User::factory()->create([
+    $user = UserModel::factory()->create([
         'email' => 'john@example.com',
         'password' => Hash::make('secret1234'),
     ]);
@@ -39,7 +39,7 @@ it('logs in with valid credentials', function () {
 
 it('rejects wrong password', function () {
     /** @var TestCase $this */
-    User::factory()->create([
+    UserModel::factory()->create([
         'email' => 'john@example.com',
         'password' => Hash::make('secret1234'),
     ]);
@@ -56,7 +56,7 @@ it('rejects wrong password', function () {
 it('throttles after 5 failed attempts', function () {
     /** @var TestCase $this */
     Event::fake();
-    User::factory()->create([
+    UserModel::factory()->create([
         'email' => 'john@example.com',
         'password' => Hash::make('secret1234'),
     ]);

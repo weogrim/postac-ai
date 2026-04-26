@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Models\User;
+use App\User\Models\UserModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Socialite\Contracts\User as SocialiteUser;
 use Laravel\Socialite\Facades\Socialite;
@@ -34,7 +34,7 @@ it('creates a user on first Google callback and logs them in', function () {
     $response = $this->get('/auth/google/callback');
 
     $response->assertRedirect(route('home'));
-    $user = User::where('email', 'new@example.com')->firstOrFail();
+    $user = UserModel::where('email', 'new@example.com')->firstOrFail();
     expect($user->password)->toBeNull();
     expect($user->email_verified_at)->not->toBeNull();
     $this->assertAuthenticatedAs($user);
@@ -42,7 +42,7 @@ it('creates a user on first Google callback and logs them in', function () {
 
 it('logs in existing user without overwriting password', function () {
     /** @var TestCase $this */
-    $existing = User::factory()->create([
+    $existing = UserModel::factory()->create([
         'email' => 'existing@example.com',
         'password' => bcrypt('keep-this'),
     ]);

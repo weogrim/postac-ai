@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\MessageLimits\Tables;
 
-use App\AI\ModelType;
-use App\Models\MessageLimit;
-use App\Premium\LimitType;
+use App\Chat\Enums\LimitType;
+use App\Chat\Enums\ModelType;
+use App\Chat\Models\MessageLimitModel;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -38,7 +38,7 @@ class MessageLimitsTable
 
                 TextColumn::make('used')
                     ->label('Użyto')
-                    ->getStateUsing(fn (MessageLimit $record): string => "{$record->used} / {$record->quota}")
+                    ->getStateUsing(fn (MessageLimitModel $record): string => "{$record->used} / {$record->quota}")
                     ->sortable(),
 
                 TextColumn::make('period_start')

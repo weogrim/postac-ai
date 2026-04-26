@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Characters;
 
+use App\Character\Models\CharacterModel;
 use App\Filament\Resources\Characters\Pages\CreateCharacter;
 use App\Filament\Resources\Characters\Pages\EditCharacter;
 use App\Filament\Resources\Characters\Pages\ListCharacters;
 use App\Filament\Resources\Characters\Schemas\CharacterForm;
 use App\Filament\Resources\Characters\Tables\CharactersTable;
-use App\Models\Character;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -20,7 +20,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class CharacterResource extends Resource
 {
-    protected static ?string $model = Character::class;
+    protected static ?string $model = CharacterModel::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUsers;
 

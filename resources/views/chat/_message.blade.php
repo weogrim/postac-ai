@@ -1,5 +1,5 @@
 @php
-    /** @var \App\Models\Message $message */
+    /** @var \App\Models\MessageModel $message */
     /** @var bool $streaming */
     $streaming = $streaming ?? false;
     $isCharacter = $message->sender_role->value === 'character';

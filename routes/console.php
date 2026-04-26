@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Jobs\RefreshDailyLimits;
+use App\Chat\Jobs\RefreshDailyLimits;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;

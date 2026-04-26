@@ -98,7 +98,7 @@ return [
      * register them.
      */
     'auto_discover_settings' => [
-        app_path('Settings'),
+        app_path('Chat/Settings'),
     ],
 
     /*

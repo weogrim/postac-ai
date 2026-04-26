@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Models\User;
+use App\User\Models\UserModel;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
@@ -29,12 +29,12 @@ it('registers a user and dispatches Registered event', function () {
     $response->assertRedirect(route('verification.notice'));
     $this->assertAuthenticated();
     Event::assertDispatched(Registered::class);
-    expect(User::where('email', 'alice@example.com')->exists())->toBeTrue();
+    expect(UserModel::where('email', 'alice@example.com')->exists())->toBeTrue();
 });
 
 it('rejects duplicate email', function () {
     /** @var TestCase $this */
-    User::factory()->create(['email' => 'dup@example.com']);
+    UserModel::factory()->create(['email' => 'dup@example.com']);
 
     $response = $this->post('/register', [
         'name' => 'other',

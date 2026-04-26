@@ -4,17 +4,19 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
-use App\Models\User;
+use App\User\Models\UserModel;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Laravel\Cashier\Subscription;
 
 /**
- * @extends Factory<User>
+ * @extends Factory<UserModel>
  */
 class UserFactory extends Factory
 {
+    protected $model = UserModel::class;
+
     /**
      * The current password being used by the factory.
      */
@@ -52,7 +54,7 @@ class UserFactory extends Factory
      */
     public function premium(): static
     {
-        return $this->afterCreating(function (User $user): void {
+        return $this->afterCreating(function (UserModel $user): void {
             Subscription::create([
                 'user_id' => $user->id,
                 'type' => 'default',

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Models\User;
+use App\User\Models\UserModel;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -14,7 +14,7 @@ uses(RefreshDatabase::class);
 it('sends a password reset link', function () {
     /** @var TestCase $this */
     Notification::fake();
-    $user = User::factory()->create(['email' => 'jane@example.com']);
+    $user = UserModel::factory()->create(['email' => 'jane@example.com']);
 
     $response = $this->post('/forgot-password', ['email' => 'jane@example.com']);
 
@@ -25,7 +25,7 @@ it('sends a password reset link', function () {
 it('resets the password with a valid token', function () {
     /** @var TestCase $this */
     Notification::fake();
-    $user = User::factory()->create([
+    $user = UserModel::factory()->create([
         'email' => 'jane@example.com',
         'password' => Hash::make('old-password'),
     ]);

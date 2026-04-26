@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
+use App\Character\Models\CharacterModel;
 use App\Filament\Resources\Characters\Pages\CreateCharacter;
 use App\Filament\Resources\Characters\Pages\EditCharacter;
 use App\Filament\Resources\Characters\Pages\ListCharacters;
-use App\Models\Character;
-use App\Models\User;
+use App\User\Models\UserModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
@@ -18,9 +18,9 @@ beforeEach(function () {
     Role::findOrCreate('super_admin', 'web');
 });
 
-function loginAsAdmin(): User
+function loginAsAdmin(): UserModel
 {
-    $admin = User::factory()->create();
+    $admin = UserModel::factory()->create();
     $admin->assignRole('super_admin');
     auth()->login($admin);
 
@@ -30,7 +30,7 @@ function loginAsAdmin(): User
 it('lists existing characters', function () {
     /** @var TestCase $this */
     $admin = loginAsAdmin();
-    $characters = Character::factory(3)->recycle($admin)->create();
+    $characters = CharacterModel::factory(3)->recycle($admin)->create();
 
     Livewire::test(ListCharacters::class)
         ->assertCanSeeTableRecords($characters);
@@ -49,13 +49,13 @@ it('creates a character through Filament form', function () {
         ->call('create')
         ->assertHasNoFormErrors();
 
-    expect(Character::query()->where('name', 'Admin-stworzona postać')->exists())->toBeTrue();
+    expect(CharacterModel::query()->where('name', 'Admin-stworzona postać')->exists())->toBeTrue();
 });
 
 it('edits a character through Filament form', function () {
     /** @var TestCase $this */
     $admin = loginAsAdmin();
-    $character = Character::factory()->recycle($admin)->create(['name' => 'Stara nazwa']);
+    $character = CharacterModel::factory()->recycle($admin)->create(['name' => 'Stara nazwa']);
 
     Livewire::test(EditCharacter::class, ['record' => $character->getKey()])
         ->fillForm(['name' => 'Nowa nazwa'])
@@ -68,7 +68,7 @@ it('edits a character through Filament form', function () {
 it('soft-deletes a character through Filament delete action', function () {
     /** @var TestCase $this */
     $admin = loginAsAdmin();
-    $character = Character::factory()->recycle($admin)->create();
+    $character = CharacterModel::factory()->recycle($admin)->create();
 
     Livewire::test(EditCharacter::class, ['record' => $character->getKey()])
         ->callAction('delete');

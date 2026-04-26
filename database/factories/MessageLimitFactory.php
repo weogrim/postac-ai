@@ -4,24 +4,26 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
-use App\AI\ModelType;
-use App\Models\MessageLimit;
-use App\Models\User;
-use App\Premium\LimitType;
+use App\Chat\Enums\LimitType;
+use App\Chat\Enums\ModelType;
+use App\Chat\Models\MessageLimitModel;
+use App\User\Models\UserModel;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends Factory<MessageLimit>
+ * @extends Factory<MessageLimitModel>
  */
 class MessageLimitFactory extends Factory
 {
+    protected $model = MessageLimitModel::class;
+
     /**
      * @return array<string, mixed>
      */
     public function definition(): array
     {
         return [
-            'user_id' => User::factory(),
+            'user_id' => UserModel::factory(),
             'model_type' => ModelType::Gpt4oMini,
             'limit_type' => LimitType::Daily,
             'priority' => 1,
@@ -31,7 +33,7 @@ class MessageLimitFactory extends Factory
         ];
     }
 
-    public function forUser(User $user): static
+    public function forUser(UserModel $user): static
     {
         return $this->state(fn () => ['user_id' => $user->id]);
     }

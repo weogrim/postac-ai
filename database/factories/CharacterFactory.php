@@ -4,24 +4,26 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
-use App\Models\Character;
-use App\Models\User;
+use App\Character\Models\CharacterModel;
+use App\User\Models\UserModel;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Plank\Mediable\Facades\ImageManipulator;
 use Plank\Mediable\Facades\MediaUploader;
 
 /**
- * @extends Factory<Character>
+ * @extends Factory<CharacterModel>
  */
 class CharacterFactory extends Factory
 {
+    protected $model = CharacterModel::class;
+
     /**
      * @return array<string, mixed>
      */
     public function definition(): array
     {
         return [
-            'user_id' => User::factory(),
+            'user_id' => UserModel::factory(),
             'name' => fake()->name(),
             'prompt' => fake()->paragraph(),
         ];
@@ -29,7 +31,7 @@ class CharacterFactory extends Factory
 
     public function withAvatar(): static
     {
-        return $this->afterCreating(function (Character $character): void {
+        return $this->afterCreating(function (CharacterModel $character): void {
             $tmp = tempnam(sys_get_temp_dir(), 'avatar_').'.png';
 
             $img = imagecreatetruecolor(512, 512);

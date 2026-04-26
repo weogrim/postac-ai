@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Characters\Schemas;
 
-use App\Models\User;
+use App\User\Models\UserModel;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -25,7 +25,7 @@ class CharacterForm
                 ->relationship('author', 'email')
                 ->searchable()
                 ->preload()
-                ->getOptionLabelFromRecordUsing(fn (User $record): string => "{$record->name} ({$record->email})")
+                ->getOptionLabelFromRecordUsing(fn (UserModel $record): string => "{$record->name} ({$record->email})")
                 ->required(),
 
             Textarea::make('prompt')

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Exceptions\OutOfMessagesException;
+use App\Chat\Exceptions\OutOfMessagesException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;

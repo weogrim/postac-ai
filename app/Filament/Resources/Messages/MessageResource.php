@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Messages;
 
+use App\Chat\Models\MessageModel;
 use App\Filament\Resources\Messages\Pages\ListMessages;
 use App\Filament\Resources\Messages\Tables\MessagesTable;
-use App\Models\Message;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Support\Icons\Heroicon;
@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class MessageResource extends Resource
 {
-    protected static ?string $model = Message::class;
+    protected static ?string $model = MessageModel::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedEnvelope;
 

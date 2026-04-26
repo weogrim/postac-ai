@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Models\User;
+use App\User\Models\UserModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -20,7 +20,7 @@ it('redirects guest to admin login', function () {
 
 it('denies non-admin user access to panel', function () {
     /** @var TestCase $this */
-    $user = User::factory()->create();
+    $user = UserModel::factory()->create();
 
     $this->actingAs($user)
         ->get('/admin')
@@ -29,7 +29,7 @@ it('denies non-admin user access to panel', function () {
 
 it('allows super_admin into panel', function () {
     /** @var TestCase $this */
-    $admin = User::factory()->create();
+    $admin = UserModel::factory()->create();
     $admin->assignRole('super_admin');
 
     $this->actingAs($admin)
@@ -39,7 +39,7 @@ it('allows super_admin into panel', function () {
 
 it('admin resources are registered and reachable', function (string $path) {
     /** @var TestCase $this */
-    $admin = User::factory()->create();
+    $admin = UserModel::factory()->create();
     $admin->assignRole('super_admin');
 
     $this->actingAs($admin)

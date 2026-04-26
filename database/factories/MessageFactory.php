@@ -4,23 +4,25 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
-use App\Messaging\SenderRole;
-use App\Models\Chat;
-use App\Models\Message;
+use App\Chat\Enums\SenderRole;
+use App\Chat\Models\ChatModel;
+use App\Chat\Models\MessageModel;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends Factory<Message>
+ * @extends Factory<MessageModel>
  */
 class MessageFactory extends Factory
 {
+    protected $model = MessageModel::class;
+
     /**
      * @return array<string, mixed>
      */
     public function definition(): array
     {
         return [
-            'chat_id' => Chat::factory(),
+            'chat_id' => ChatModel::factory(),
             'sender_role' => SenderRole::User,
             'user_id' => null,
             'character_id' => null,
@@ -30,7 +32,7 @@ class MessageFactory extends Factory
         ];
     }
 
-    public function fromUser(Chat $chat): static
+    public function fromUser(ChatModel $chat): static
     {
         return $this->state([
             'chat_id' => $chat->id,
@@ -40,7 +42,7 @@ class MessageFactory extends Factory
         ]);
     }
 
-    public function fromCharacter(Chat $chat): static
+    public function fromCharacter(ChatModel $chat): static
     {
         return $this->state([
             'chat_id' => $chat->id,

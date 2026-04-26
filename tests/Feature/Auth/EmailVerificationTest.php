@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Models\User;
+use App\User\Models\UserModel;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
@@ -13,7 +13,7 @@ uses(RefreshDatabase::class);
 
 it('renders the verification notice for unverified user', function () {
     /** @var TestCase $this */
-    $user = User::factory()->unverified()->create();
+    $user = UserModel::factory()->unverified()->create();
 
     $this->actingAs($user)->get('/verify-email')
         ->assertOk()
@@ -22,7 +22,7 @@ it('renders the verification notice for unverified user', function () {
 
 it('redirects verified user away from notice', function () {
     /** @var TestCase $this */
-    $user = User::factory()->create();
+    $user = UserModel::factory()->create();
 
     $this->actingAs($user)->get('/verify-email')
         ->assertRedirect(route('home'));
@@ -31,7 +31,7 @@ it('redirects verified user away from notice', function () {
 it('verifies email via signed link and dispatches Verified event', function () {
     /** @var TestCase $this */
     Event::fake();
-    $user = User::factory()->unverified()->create();
+    $user = UserModel::factory()->unverified()->create();
 
     $url = URL::temporarySignedRoute(
         'verification.verify',
@@ -48,7 +48,7 @@ it('verifies email via signed link and dispatches Verified event', function () {
 
 it('blocks verified-guarded routes for unverified users', function () {
     /** @var TestCase $this */
-    $user = User::factory()->unverified()->create();
+    $user = UserModel::factory()->unverified()->create();
 
     $this->actingAs($user)->get(route('profile.show'))
         ->assertRedirect(route('verification.notice'));
