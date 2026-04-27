@@ -2,23 +2,78 @@
 
 @section('content')
     <section class="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12">
-        <header class="mb-8 flex items-end justify-between gap-4">
-            <div>
-                <h1 class="text-2xl font-bold tracking-tight sm:text-3xl">Postacie</h1>
-                <p class="mt-1 text-sm text-base-content/70">Wybierz postać i zacznij rozmowę.</p>
-            </div>
-
-            @auth
-                <a href="{{ route('character.create') }}" class="btn btn-primary btn-sm sm:btn-md">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-                    </svg>
-                    <span class="hidden sm:inline">Dodaj postać</span>
-                </a>
-            @endauth
+        <header class="mb-10 text-center">
+            <h1 class="text-3xl font-bold tracking-tight sm:text-5xl">Z kim chcesz porozmawiać?</h1>
+            <form
+                method="GET"
+                action="{{ route('character.index') }}"
+                class="mx-auto mt-6 flex max-w-xl"
+                hx-get="{{ route('character.search') }}"
+                hx-trigger="input changed delay:300ms"
+                hx-target="#popular-grid"
+                hx-swap="innerHTML"
+                hx-push-url="false"
+            >
+                <input
+                    type="search"
+                    name="q"
+                    placeholder="🔍 szukaj postaci…"
+                    class="input input-bordered input-lg w-full"
+                    autocomplete="off"
+                >
+            </form>
         </header>
 
-        @if ($characters->isEmpty())
+        @if ($popular->isNotEmpty())
+            <div class="mb-12">
+                <div class="mb-4 flex items-end justify-between">
+                    <h2 class="text-xl font-semibold">Teraz popularne</h2>
+                    <a href="{{ route('character.index') }}" class="link link-primary text-sm">Zobacz wszystkie →</a>
+                </div>
+                <div id="popular-grid" class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+                    @foreach ($popular as $character)
+                        <x-character-card :character="$character" />
+                    @endforeach
+                </div>
+            </div>
+        @endif
+
+        @if ($categories->isNotEmpty())
+            <div class="mb-12">
+                <h2 class="mb-4 text-xl font-semibold">Kategorie</h2>
+                <div class="flex flex-wrap gap-2">
+                    @foreach ($categories as $cat)
+                        <a
+                            href="{{ route('character.index', ['category' => $cat->slug]) }}"
+                            class="btn btn-sm btn-outline"
+                        >
+                            {{ $cat->name }}
+                        </a>
+                    @endforeach
+                </div>
+            </div>
+        @endif
+
+        @if ($latest->isNotEmpty())
+            <div class="mb-12">
+                <h2 class="mb-4 text-xl font-semibold">Nowe i ciekawe</h2>
+                <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+                    @foreach ($latest as $character)
+                        <x-character-card :character="$character" />
+                    @endforeach
+                </div>
+            </div>
+        @endif
+
+        @auth
+            <div class="mt-12 rounded-2xl border border-base-300 bg-base-100 p-8 text-center">
+                <h3 class="text-lg font-semibold">Masz pomysł na własną postać?</h3>
+                <p class="mt-2 text-sm text-base-content/70">Stwórz ją i podziel się ze społecznością.</p>
+                <a href="{{ route('character.create') }}" class="btn btn-primary mt-4">➕ Stwórz swoją postać</a>
+            </div>
+        @endauth
+
+        @if ($popular->isEmpty() && $latest->isEmpty())
             <div class="rounded-2xl border border-base-300 bg-base-100 p-10 text-center">
                 <p class="text-lg font-medium">Brak postaci</p>
                 <p class="mt-2 text-sm text-base-content/70">
@@ -35,10 +90,6 @@
                         <a href="{{ route('login') }}" class="btn btn-primary">Zaloguj</a>
                     @endauth
                 </div>
-            </div>
-        @else
-            <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4 xl:grid-cols-6">
-                @include('partials._character-grid-page', ['characters' => $characters])
             </div>
         @endif
     </section>

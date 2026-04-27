@@ -79,12 +79,14 @@ it('store 404s when chat belongs to another user', function () {
         ->assertNotFound();
 });
 
-it('store requires auth', function () {
+it('store creates a ghost session and returns 404 for someone elses chat', function () {
     /** @var TestCase $this */
     [, , $chat] = seedChat();
 
     $this->post("/chat/{$chat->id}/messages", ['content' => 'hej'])
-        ->assertRedirect('/login');
+        ->assertNotFound();
+
+    expect(UserModel::query()->guests()->count())->toBe(1);
 });
 
 it('stream updates character message content from faked AI response', function () {

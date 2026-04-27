@@ -9,22 +9,25 @@ use App\Chat\Models\ChatModel;
 use App\Chat\Models\MessageModel;
 use App\Chat\Requests\MessageStoreRequest;
 use App\Chat\ReserveMessageQuota;
+use App\User\EnsureGhostUser;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 
 class MessageController
 {
-    public function store(MessageStoreRequest $request, ChatModel $chat, ReserveMessageQuota $reserve): Response
+    public function store(MessageStoreRequest $request, ChatModel $chat): Response
     {
-        abort_unless($chat->user_id === $request->user()?->id, 404);
+        $user = app(EnsureGhostUser::class)->forRequest($request);
 
-        $model = $reserve($request->user());
+        abort_unless($chat->user_id === $user->id, 404);
 
-        [$userMessage, $characterMessage] = DB::transaction(function () use ($chat, $request, $model) {
-            $user = MessageModel::create([
+        $model = app(ReserveMessageQuota::class)->reserve($user);
+
+        [$userMessage, $characterMessage] = DB::transaction(function () use ($chat, $request, $user, $model) {
+            $userMessage = MessageModel::create([
                 'chat_id' => $chat->id,
                 'sender_role' => SenderRole::User,
-                'user_id' => $request->user()->id,
+                'user_id' => $user->id,
                 'content' => $request->string('content')->toString(),
                 'model' => $model->value,
             ]);
@@ -37,7 +40,7 @@ class MessageController
                 'model' => $model->value,
             ]);
 
-            return [$user, $character];
+            return [$userMessage, $character];
         });
 
         $userMessage->load('user');

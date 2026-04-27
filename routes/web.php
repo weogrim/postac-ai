@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Auth\Controllers\AuthCompleteController;
 use App\Auth\Controllers\EmailVerificationNoticeController;
 use App\Auth\Controllers\EmailVerificationResendController;
 use App\Auth\Controllers\LoginController;
@@ -20,6 +21,7 @@ use App\Chat\Controllers\ChatController;
 use App\Chat\Controllers\MessageController;
 use App\Chat\Controllers\MessageStreamController;
 use App\Home\Controllers\HomeController;
+use App\Legal\Controllers\LegalDocumentController;
 use App\User\Controllers\PasswordController;
 use App\User\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
@@ -27,25 +29,35 @@ use Laravel\Cashier\Http\Middleware\VerifyWebhookSignature;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
-Route::middleware('guest')->group(function (): void {
+Route::get('/legal/{slug}', [LegalDocumentController::class, 'show'])->name('legal.show');
+
+Route::get('/characters', [CharacterController::class, 'index'])->name('character.index');
+Route::get('/characters/search', [CharacterController::class, 'search'])->name('character.search');
+
+Route::middleware('guest.ghost')->group(function (): void {
     Route::get('/register', [RegisterController::class, 'show'])->name('register');
     Route::post('/register', [RegisterController::class, 'store']);
 
     Route::get('/login', [LoginController::class, 'show'])->name('login');
     Route::post('/login', [LoginController::class, 'store']);
 
+    Route::get('/auth/{provider}', [SocialAuthController::class, 'redirect'])->name('auth.social');
+    Route::get('/auth/{provider}/callback', [SocialAuthController::class, 'callback'])->name('auth.social.callback');
+});
+
+Route::middleware('guest')->group(function (): void {
     Route::get('/forgot-password', [PasswordResetLinkController::class, 'show'])->name('password.request');
     Route::post('/forgot-password', [PasswordResetLinkController::class, 'store'])->name('password.email');
 
     Route::get('/reset-password/{token}', [NewPasswordController::class, 'show'])->name('password.reset');
     Route::post('/reset-password', [NewPasswordController::class, 'store'])->name('password.store');
-
-    Route::get('/auth/{provider}', [SocialAuthController::class, 'redirect'])->name('auth.social');
-    Route::get('/auth/{provider}/callback', [SocialAuthController::class, 'callback'])->name('auth.social.callback');
 });
 
 Route::middleware('auth')->group(function (): void {
     Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
+
+    Route::get('/onboarding', [AuthCompleteController::class, 'show'])->name('auth.complete');
+    Route::post('/onboarding', [AuthCompleteController::class, 'store']);
 
     Route::get('/verify-email', [EmailVerificationNoticeController::class, 'show'])->name('verification.notice');
     Route::get('/verify-email/{id}/{hash}', VerifyEmailController::class)
@@ -65,19 +77,22 @@ Route::middleware('auth')->group(function (): void {
 
         Route::get('/characters/create', [CharacterController::class, 'create'])->name('character.create');
         Route::post('/characters', [CharacterController::class, 'store'])->name('character.store');
-
-        Route::get('/chat', [ChatController::class, 'index'])->name('chat.index');
-        Route::post('/chat', [ChatController::class, 'store'])->name('chat.store');
-        Route::get('/chat/{chat}', [ChatController::class, 'show'])->name('chat.show');
-
-        Route::post('/chat/{chat}/messages', [MessageController::class, 'store'])->name('message.store');
-        Route::get('/chat/{chat}/messages/stream', MessageStreamController::class)->name('message.stream');
-
-        Route::get('/buy', [BuyController::class, 'index'])->name('buy.index');
-        Route::post('/buy/{package}', [BuyController::class, 'store'])->name('buy.store');
-        Route::get('/buy/success', BuySuccessController::class)->name('buy.success');
-        Route::get('/buy/cancel', BuyCancelController::class)->name('buy.cancel');
     });
+});
+
+Route::get('/characters/{character}', [CharacterController::class, 'show'])->name('character.show');
+
+Route::get('/chat', [ChatController::class, 'index'])->name('chat.index');
+Route::post('/chat', [ChatController::class, 'store'])->name('chat.store');
+Route::get('/chat/{chat}', [ChatController::class, 'show'])->name('chat.show');
+Route::post('/chat/{chat}/messages', [MessageController::class, 'store'])->name('message.store');
+Route::get('/chat/{chat}/messages/stream', MessageStreamController::class)->name('message.stream');
+
+Route::middleware(['auth', 'verified'])->group(function (): void {
+    Route::get('/buy', [BuyController::class, 'index'])->name('buy.index');
+    Route::post('/buy/{package}', [BuyController::class, 'store'])->name('buy.store');
+    Route::get('/buy/success', BuySuccessController::class)->name('buy.success');
+    Route::get('/buy/cancel', BuyCancelController::class)->name('buy.cancel');
 });
 
 Route::post('/stripe/webhook', [StripeWebhookController::class, 'handleWebhook'])

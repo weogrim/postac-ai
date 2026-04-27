@@ -8,4 +8,5 @@ enum LimitType: string
 {
     case Daily = 'daily';
     case Package = 'package';
+    case Guest = 'guest';
 }

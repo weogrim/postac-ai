@@ -141,7 +141,7 @@ it('package limits interact with ReserveMessageQuota priority 3 > daily', functi
     fakeWebhookController([config('billing.prices.five')])
         ->handleCheckoutSessionCompleted(checkoutSessionPayload('cus_prio'));
 
-    $model = app(ReserveMessageQuota::class)($user);
+    $model = app(ReserveMessageQuota::class)->reserve($user);
 
     expect($model)->toBe(ModelType::Gpt4o);
 

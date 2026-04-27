@@ -13,11 +13,6 @@ use Illuminate\Support\Facades\DB;
 
 class ReserveMessageQuota
 {
-    public function __construct(
-        private readonly GrantDailyLimits $grantDailyLimits,
-        private readonly ChatSettings $chatSettings,
-    ) {}
-
     /**
      * Atomowo wybiera i konsumuje jeden slot wiadomości dla usera.
      *
@@ -26,13 +21,13 @@ class ReserveMessageQuota
      * → pierwszy dostępny wg priority desc → increment `used` → zwraca model.
      * Jeśli nic dostępne → OutOfMessagesException.
      */
-    public function __invoke(UserModel $user): ModelType
+    public function reserve(UserModel $user): ModelType
     {
         if ($user->subscribed()) {
-            return $this->chatSettings->defaultModel;
+            return app(ChatSettings::class)->defaultModel;
         }
 
-        $this->grantDailyLimits->forUser($user);
+        app(GrantDailyLimits::class)->forUser($user);
 
         return DB::transaction(function () use ($user): ModelType {
             $limit = MessageLimitModel::query()

@@ -6,21 +6,37 @@ namespace App\Home\Controllers;
 
 use App\Character\Models\CharacterModel;
 use Illuminate\Contracts\View\View;
-use Illuminate\Http\Request;
+use Spatie\Tags\Tag;
 
 class HomeController
 {
-    public function index(Request $request): View
+    public function index(): View
     {
-        $characters = CharacterModel::query()
+        $popular = CharacterModel::query()
+            ->regular()
+            ->with(['author', 'media'])
+            ->orderByDesc('is_official')
+            ->orderByDesc('popularity_24h')
+            ->orderByDesc('created_at')
+            ->limit(6)
+            ->get();
+
+        $latest = CharacterModel::query()
+            ->regular()
             ->with(['author', 'media'])
             ->latest()
-            ->paginate(24);
+            ->limit(6)
+            ->get();
 
-        if ($request->header('HX-Request') === 'true' && $request->query('page') !== null) {
-            return view('partials._character-grid-page', ['characters' => $characters]);
-        }
+        $categories = Tag::query()
+            ->where('type', 'category')
+            ->ordered()
+            ->get();
 
-        return view('home', ['characters' => $characters]);
+        return view('home', [
+            'popular' => $popular,
+            'latest' => $latest,
+            'categories' => $categories,
+        ]);
     }
 }

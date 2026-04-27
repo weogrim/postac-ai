@@ -12,3 +12,13 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::job(new RefreshDailyLimits)->dailyAt('00:05')->name('refresh-daily-limits');
+
+Schedule::command('characters:recalc-popularity')
+    ->everyFiveMinutes()
+    ->name('recalc-popularity')
+    ->withoutOverlapping();
+
+Schedule::command('users:gc-guests')
+    ->daily()
+    ->name('gc-guest-users')
+    ->withoutOverlapping();

@@ -18,7 +18,7 @@ it('premium user bypasses limits and gets ChatSettings default model', function 
     /** @var TestCase $this */
     $user = UserModel::factory()->premium()->create();
 
-    $model = app(ReserveMessageQuota::class)($user);
+    $model = app(ReserveMessageQuota::class)->reserve($user);
 
     expect($model)->toBe(app(ChatSettings::class)->defaultModel)
         ->and(MessageLimitModel::forUser($user)->count())->toBe(0);
@@ -28,7 +28,7 @@ it('grants daily limits on-demand for new free user', function () {
     /** @var TestCase $this */
     $user = UserModel::factory()->create();
 
-    $model = app(ReserveMessageQuota::class)($user);
+    $model = app(ReserveMessageQuota::class)->reserve($user);
 
     expect($model)->toBe(ModelType::Gpt4o);
 
@@ -60,7 +60,7 @@ it('falls through to lower priority when higher is exhausted', function () {
         'period_start' => now(),
     ]);
 
-    $model = app(ReserveMessageQuota::class)($user);
+    $model = app(ReserveMessageQuota::class)->reserve($user);
 
     expect($model)->toBe(ModelType::Gpt4oMini);
 
@@ -89,7 +89,7 @@ it('throws OutOfMessages when all limits exhausted', function () {
         'period_start' => now(),
     ]);
 
-    expect(fn () => app(ReserveMessageQuota::class)($user))
+    expect(fn () => app(ReserveMessageQuota::class)->reserve($user))
         ->toThrow(OutOfMessagesException::class);
 });
 
@@ -106,7 +106,7 @@ it('treats out-of-window daily limits as unavailable (but auto-grants fresh ones
         'period_start' => now()->subDays(3),
     ]);
 
-    $model = app(ReserveMessageQuota::class)($user);
+    $model = app(ReserveMessageQuota::class)->reserve($user);
 
     $gpt4o = MessageLimitModel::forUser($user)->where('model_type', ModelType::Gpt4o->value)->first();
     expect($model)->toBe(ModelType::Gpt4o)
@@ -120,7 +120,7 @@ it('prefers package limits (priority 3) over daily', function () {
 
     MessageLimitModel::factory()->forUser($user)->package(quota: 10, model: ModelType::Gpt4o)->create();
 
-    $model = app(ReserveMessageQuota::class)($user);
+    $model = app(ReserveMessageQuota::class)->reserve($user);
 
     expect($model)->toBe(ModelType::Gpt4o);
     $pkg = MessageLimitModel::forUser($user)->where('limit_type', LimitType::Package->value)->first();
@@ -142,13 +142,13 @@ it('increments atomically under repeated calls', function () {
         'period_start' => now(),
     ]);
 
-    $reserve = app(ReserveMessageQuota::class);
+    $rmq = app(ReserveMessageQuota::class);
 
-    $reserve($user);
-    $reserve($user);
-    $reserve($user);
+    $rmq->reserve($user);
+    $rmq->reserve($user);
+    $rmq->reserve($user);
 
-    expect(fn () => $reserve($user))->toThrow(OutOfMessagesException::class);
+    expect(fn () => $rmq->reserve($user))->toThrow(OutOfMessagesException::class);
 
     $mini = MessageLimitModel::forUser($user)->where('model_type', ModelType::Gpt4oMini->value)->first();
     expect($mini->used)->toBe(3);

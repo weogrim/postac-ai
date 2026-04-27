@@ -6,26 +6,11 @@ use App\Character\Models\CharacterModel;
 use App\Filament\Resources\Characters\Pages\CreateCharacter;
 use App\Filament\Resources\Characters\Pages\EditCharacter;
 use App\Filament\Resources\Characters\Pages\ListCharacters;
-use App\User\Models\UserModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
-use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 uses(RefreshDatabase::class);
-
-beforeEach(function () {
-    Role::findOrCreate('super_admin', 'web');
-});
-
-function loginAsAdmin(): UserModel
-{
-    $admin = UserModel::factory()->create();
-    $admin->assignRole('super_admin');
-    auth()->login($admin);
-
-    return $admin;
-}
 
 it('lists existing characters', function () {
     /** @var TestCase $this */

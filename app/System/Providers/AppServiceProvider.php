@@ -8,6 +8,8 @@ use App\Character\Models\CharacterModel;
 use App\Chat\Models\ChatModel;
 use App\Chat\Models\MessageLimitModel;
 use App\Chat\Models\MessageModel;
+use App\Legal\Models\ConsentModel;
+use App\Legal\Models\LegalDocumentModel;
 use App\User\Models\UserModel;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -34,6 +36,8 @@ class AppServiceProvider extends ServiceProvider
             'chat' => ChatModel::class,
             'message' => MessageModel::class,
             'message_limit' => MessageLimitModel::class,
+            'legal_document' => LegalDocumentModel::class,
+            'consent' => ConsentModel::class,
         ]);
 
         Factory::guessFactoryNamesUsing(static function (string $modelName): string {

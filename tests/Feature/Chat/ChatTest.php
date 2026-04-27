@@ -79,8 +79,7 @@ it('returns 404 when viewing another user chat', function () {
         ->assertNotFound();
 });
 
-it('requires auth for chat routes', function () {
+it('redirects unauthenticated /chat index to home', function () {
     /** @var TestCase $this */
-    $this->get('/chat')->assertRedirect(route('login'));
-    $this->post('/chat', ['character_id' => 'x'])->assertRedirect(route('login'));
+    $this->get('/chat')->assertRedirect(route('home'));
 });

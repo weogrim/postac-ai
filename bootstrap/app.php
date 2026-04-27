@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Auth\Middleware\RedirectIfRegistered;
 use App\Chat\Exceptions\OutOfMessagesException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -17,9 +18,16 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    ->withCommands([
+        ...glob(__DIR__.'/../app/*/Commands') ?: [],
+    ])
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->preventRequestForgery(except: [
             'stripe/webhook',
+        ]);
+
+        $middleware->alias([
+            'guest.ghost' => RedirectIfRegistered::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
@@ -38,9 +46,13 @@ return Application::configure(basePath: dirname(__DIR__))
         });
 
         $exceptions->render(function (OutOfMessagesException $e, Request $request) {
+            $isGuest = $request->user()?->isGuest() ?? false;
+
             if ($request->header('HX-Request') === 'true') {
+                $view = $isGuest ? 'htmx.guest-gate' : 'htmx.out-of-messages';
+
                 return response()
-                    ->view('htmx.out-of-messages', ['message' => $e->getMessage()], 403)
+                    ->view($view, ['message' => $e->getMessage()], 403)
                     ->header('HX-Reswap', 'none');
             }
 

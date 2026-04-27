@@ -13,9 +13,11 @@ use Throwable;
 
 class MessageStreamController
 {
-    public function __invoke(Request $request, ChatModel $chat, MessageStreamer $streamer): StreamedResponse
+    public function __invoke(Request $request, ChatModel $chat): StreamedResponse
     {
         abort_unless($chat->user_id === $request->user()?->id, 404);
+
+        $streamer = app(MessageStreamer::class);
 
         $characterMessage = $chat->messages()
             ->where('sender_role', SenderRole::Character->value)

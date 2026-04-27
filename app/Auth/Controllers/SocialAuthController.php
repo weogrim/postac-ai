@@ -33,32 +33,58 @@ class SocialAuthController
         $socialiteUser = Socialite::driver($provider->value)->user();
 
         $email = (string) $socialiteUser->getEmail();
+        $current = Auth::user();
+        $isGhost = $current instanceof UserModel && $current->isGuest();
 
-        $user = UserModel::firstOrCreate(
-            ['email' => $email],
-            [
-                'name' => $this->buildName($socialiteUser, $email),
-                'password' => null,
-                'email_verified_at' => now(),
-            ],
-        );
+        $existing = UserModel::query()
+            ->whereNotNull('email')
+            ->where('email', $email)
+            ->first();
 
-        if ($user->email_verified_at === null) {
-            $user->forceFill(['email_verified_at' => now()])->save();
+        if ($existing !== null) {
+            if ($isGhost && $current->id !== $existing->id) {
+                $current->delete();
+            }
+
+            if ($existing->email_verified_at === null) {
+                $existing->forceFill(['email_verified_at' => now()])->save();
+            }
+
+            Auth::login($existing, remember: true);
+
+            return $existing->birthdate === null
+                ? redirect()->route('auth.complete')
+                : redirect()->intended(route('home'));
         }
+
+        $name = $socialiteUser->getName();
+        $base = is_string($name) && $name !== '' ? $name : Str::before($email, '@');
+        $candidate = Str::of($base)->trim()->substr(0, 40)->toString();
+
+        if (UserModel::query()->where('name', $candidate)->where('id', '!=', $isGhost ? $current->id : 0)->exists()) {
+            $candidate .= '-'.Str::lower(Str::random(4));
+        }
+
+        if ($isGhost) {
+            $current->forceFill([
+                'name' => $candidate,
+                'email' => $email,
+                'email_verified_at' => now(),
+            ])->save();
+
+            return redirect()->route('auth.complete');
+        }
+
+        $user = UserModel::create([
+            'name' => $candidate,
+            'email' => $email,
+            'password' => null,
+        ]);
+
+        $user->forceFill(['email_verified_at' => now()])->save();
 
         Auth::login($user, remember: true);
 
-        return redirect()->intended(route('home'));
-    }
-
-    private function buildName(SocialiteUser $socialiteUser, string $email): string
-    {
-        $base = $socialiteUser->getName() ?? Str::before($email, '@');
-        $candidate = Str::of($base)->trim()->substr(0, 40)->toString();
-
-        return UserModel::where('name', $candidate)->exists()
-            ? $candidate.'-'.Str::lower(Str::random(4))
-            : $candidate;
+        return redirect()->route('auth.complete');
     }
 }

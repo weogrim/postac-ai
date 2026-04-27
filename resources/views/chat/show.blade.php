@@ -35,32 +35,11 @@
                     @endforelse
                 </div>
 
-                <form
-                    data-chat-form
-                    hx-post="{{ route('message.store', $chat) }}"
-                    hx-target="#messages"
-                    hx-swap="beforeend"
-                    hx-disable="this"
-                    class="sticky bottom-0 flex items-end gap-2 border-t border-base-300 bg-base-200 py-4"
-                >
-                    @csrf
-                    <textarea
-                        name="content"
-                        rows="1"
-                        placeholder="Napisz wiadomość..."
-                        class="textarea textarea-bordered max-h-40 w-full resize-none"
-                        required
-                        maxlength="8000"
-                        data-chat-input
-                    ></textarea>
-                    <button type="submit" class="btn btn-primary btn-square" aria-label="Wyślij">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 5l7 7-7 7" />
-                        </svg>
-                    </button>
-                </form>
+                @include('chat._composer', ['chat' => $chat, 'locked' => $gateLocked ?? false])
             </div>
         </div>
+
+        @include('chat._gate-modal', ['open' => $gateLocked ?? false])
 
         <div class="drawer-side z-30">
             <label for="chat-drawer" class="drawer-overlay" aria-label="Zamknij"></label>
@@ -103,11 +82,12 @@
         (() => {
             const root = document.querySelector('[data-chat]');
             if (!root) return;
-            const chatId = root.dataset.chatId;
             const messages = document.getElementById('messages');
             const form = root.querySelector('[data-chat-form]');
             const input = root.querySelector('[data-chat-input]');
             const streamUrl = @json(route('message.stream', $chat));
+
+            if (!form || !input) return;
 
             const scrollToBottom = () => messages.scrollTo({ top: messages.scrollHeight, behavior: 'smooth' });
 

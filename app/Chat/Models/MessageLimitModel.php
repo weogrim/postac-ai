@@ -73,7 +73,7 @@ class MessageLimitModel extends Model
     public function scopeForCurrentWindow(Builder $query): Builder
     {
         return $query->where(function (Builder $q): void {
-            $q->where('limit_type', LimitType::Package->value)
+            $q->whereIn('limit_type', [LimitType::Package->value, LimitType::Guest->value])
                 ->orWhere(function (Builder $daily): void {
                     $daily->where('limit_type', LimitType::Daily->value)
                         ->where('period_start', '>=', now()->subDay());
