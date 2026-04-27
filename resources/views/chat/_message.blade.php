@@ -19,4 +19,10 @@
         class="chat-bubble {{ $isCharacter ? 'chat-bubble-neutral' : 'chat-bubble-primary' }} whitespace-pre-line"
         @if ($streaming) data-streaming="true" @endif
     >{{ $message->content }}</div>
+
+    @if ($isCharacter && ! $streaming && $message->content !== '')
+        <div class="chat-footer mt-1 opacity-60">
+            <x-report-button type="message" :id="$message->id" />
+        </div>
+    @endif
 </div>

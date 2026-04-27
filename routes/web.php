@@ -20,8 +20,11 @@ use App\Character\Controllers\CharacterController;
 use App\Chat\Controllers\ChatController;
 use App\Chat\Controllers\MessageController;
 use App\Chat\Controllers\MessageStreamController;
+use App\Dating\Controllers\DatingController;
+use App\Dating\Controllers\DatingOnboardingController;
 use App\Home\Controllers\HomeController;
 use App\Legal\Controllers\LegalDocumentController;
+use App\Reporting\Controllers\ReportController;
 use App\User\Controllers\PasswordController;
 use App\User\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
@@ -80,13 +83,22 @@ Route::middleware('auth')->group(function (): void {
     });
 });
 
-Route::get('/characters/{character}', [CharacterController::class, 'show'])->name('character.show');
+Route::get('/postacie/{character:slug}', [CharacterController::class, 'show'])->name('character.show');
+
+Route::get('/randki', [DatingController::class, 'index'])->name('dating.index');
+Route::middleware('auth')->group(function (): void {
+    Route::get('/randki/onboarding', [DatingOnboardingController::class, 'show'])->name('dating.onboarding');
+    Route::post('/randki/onboarding', [DatingOnboardingController::class, 'store']);
+});
+Route::get('/randki/{character}', [DatingController::class, 'show'])->name('dating.show');
 
 Route::get('/chat', [ChatController::class, 'index'])->name('chat.index');
 Route::post('/chat', [ChatController::class, 'store'])->name('chat.store');
 Route::get('/chat/{chat}', [ChatController::class, 'show'])->name('chat.show');
 Route::post('/chat/{chat}/messages', [MessageController::class, 'store'])->name('message.store');
 Route::get('/chat/{chat}/messages/stream', MessageStreamController::class)->name('message.stream');
+
+Route::post('/reports', [ReportController::class, 'store'])->name('report.store');
 
 Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::get('/buy', [BuyController::class, 'index'])->name('buy.index');

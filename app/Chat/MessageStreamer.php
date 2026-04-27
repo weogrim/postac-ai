@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Chat;
 
+use App\Character\Enums\CharacterKind;
 use App\Chat\Enums\ModelType;
 use App\Chat\Enums\SenderRole;
 use App\Chat\Models\ChatModel;
 use App\Chat\Models\MessageModel;
 use App\Chat\Settings\ChatSettings;
+use App\Dating\PromptTemplates;
 use Generator;
 use Laravel\Ai\AnonymousAgent;
 use Laravel\Ai\Messages\AssistantMessage;
@@ -63,8 +65,14 @@ class MessageStreamer
 
         $model = ModelType::from($characterMessage->model ?? ModelType::Gpt4oMini->value);
 
+        $instructions = $chat->character->prompt;
+
+        if ($chat->character->kind === CharacterKind::Dating) {
+            $instructions .= app(PromptTemplates::class)->flirt();
+        }
+
         $agent = new AnonymousAgent(
-            instructions: $chat->character->prompt,
+            instructions: $instructions,
             messages: $history,
             tools: [],
         );

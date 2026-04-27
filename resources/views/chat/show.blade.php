@@ -124,6 +124,11 @@
                         eventSource = null;
                         return;
                     }
+                    if (typeof payload.replace === 'string') {
+                        bubble.textContent = payload.replace;
+                        scrollToBottom();
+                        return;
+                    }
                     if (typeof payload.delta === 'string') {
                         bubble.textContent += payload.delta;
                         scrollToBottom();

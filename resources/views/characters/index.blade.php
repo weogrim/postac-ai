@@ -12,7 +12,7 @@
             action="{{ route('character.index') }}"
             class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center"
             hx-get="{{ route('character.search') }}"
-            hx-trigger="input changed delay:300ms from:input[name=q], change from:select[name=category], change from:select[name=sort]"
+            hx-trigger="input changed delay:300ms from:input[name=q], change from:select[name=category], change from:select[name=sort], change from:input[name=official]"
             hx-target="#characters-grid"
             hx-swap="innerHTML"
             hx-push-url="true"
@@ -35,6 +35,16 @@
                 <option value="popular" @selected($sort === 'popular')>Popularne</option>
                 <option value="new" @selected($sort === 'new')>Nowe</option>
             </select>
+            <label class="label cursor-pointer gap-2">
+                <input
+                    type="checkbox"
+                    name="official"
+                    value="1"
+                    class="checkbox checkbox-primary"
+                    @checked($official)
+                >
+                <span class="label-text">Tylko oficjalne</span>
+            </label>
         </form>
 
         <div id="characters-grid" class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">

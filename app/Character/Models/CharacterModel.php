@@ -6,6 +6,7 @@ namespace App\Character\Models;
 
 use App\Character\Enums\CharacterKind;
 use App\Chat\Models\ChatModel;
+use App\Dating\Models\DatingProfileModel;
 use App\User\Models\UserModel;
 use Database\Factories\CharacterFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -15,8 +16,10 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 use Plank\Mediable\Mediable;
 use Plank\Mediable\MediableInterface;
 use Spatie\Tags\HasTags;
@@ -26,6 +29,7 @@ use Spatie\Tags\Tag;
  * @property string $id
  * @property int $user_id
  * @property string $name
+ * @property string|null $slug
  * @property string|null $description
  * @property string $prompt
  * @property string|null $greeting
@@ -33,13 +37,20 @@ use Spatie\Tags\Tag;
  * @property bool $is_official
  * @property int $popularity_24h
  */
-#[Fillable(['user_id', 'name', 'description', 'prompt', 'greeting', 'kind', 'is_official'])]
+#[Fillable(['user_id', 'name', 'slug', 'description', 'prompt', 'greeting', 'kind', 'is_official'])]
 class CharacterModel extends Model implements MediableInterface
 {
     /** @use HasFactory<CharacterFactory> */
     use HasFactory, HasTags, HasUlids, Mediable, SoftDeletes;
 
     protected $table = 'characters';
+
+    /** @var array<string, mixed> */
+    protected $attributes = [
+        'kind' => 'regular',
+        'is_official' => false,
+        'popularity_24h' => 0,
+    ];
 
     public function getForeignKey(): string
     {
@@ -48,6 +59,12 @@ class CharacterModel extends Model implements MediableInterface
 
     protected static function booted(): void
     {
+        static::saving(function (CharacterModel $character): void {
+            if ($character->kind === CharacterKind::Regular && ($character->slug === null || $character->slug === '')) {
+                $character->slug = self::generateUniqueSlug($character->name, $character->id);
+            }
+        });
+
         static::deleting(function (CharacterModel $character): void {
             if ($character->isForceDeleting()) {
                 return;
@@ -59,6 +76,25 @@ class CharacterModel extends Model implements MediableInterface
         static::restoring(function (CharacterModel $character): void {
             $character->chats()->onlyTrashed()->restore();
         });
+    }
+
+    private static function generateUniqueSlug(string $name, ?string $ignoreId): string
+    {
+        $base = Str::slug($name) ?: 'postac';
+        $candidate = $base;
+        $counter = 2;
+
+        while (self::query()
+            ->where('slug', $candidate)
+            ->when($ignoreId !== null, fn (Builder $q) => $q->where('id', '!=', $ignoreId))
+            ->withTrashed()
+            ->exists()
+        ) {
+            $candidate = $base.'-'.$counter;
+            $counter++;
+        }
+
+        return $candidate;
     }
 
     public function avatarUrl(string $variant = 'square'): string
@@ -86,6 +122,14 @@ class CharacterModel extends Model implements MediableInterface
     public function chats(): HasMany
     {
         return $this->hasMany(ChatModel::class, 'character_id');
+    }
+
+    /**
+     * @return HasOne<DatingProfileModel, $this>
+     */
+    public function datingProfile(): HasOne
+    {
+        return $this->hasOne(DatingProfileModel::class, 'character_id');
     }
 
     /**

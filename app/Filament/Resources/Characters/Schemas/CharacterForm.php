@@ -23,6 +23,14 @@ class CharacterForm
                 ->required()
                 ->maxLength(120),
 
+            TextInput::make('slug')
+                ->label('Slug (URL)')
+                ->maxLength(160)
+                ->regex('/^[a-z0-9-]+$/')
+                ->validationMessages(['regex' => 'Tylko małe litery, cyfry i myślniki.'])
+                ->unique(ignoreRecord: true)
+                ->helperText('Auto-generowany z nazwy. Edytuj na własną odpowiedzialność — zmiana łamie istniejące linki.'),
+
             Select::make('user_id')
                 ->label('Autor')
                 ->relationship('author', 'email')

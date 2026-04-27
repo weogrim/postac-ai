@@ -38,6 +38,7 @@ class CharacterController
             'q' => $request->string('q')->toString(),
             'category' => $request->string('category')->toString(),
             'sort' => $request->string('sort')->toString() ?: 'popular',
+            'official' => $request->boolean('official'),
         ]);
     }
 
@@ -124,6 +125,10 @@ class CharacterController
             $query->whereHas('categories', function (Builder $sub) use ($category): void {
                 $sub->where('slug->pl', $category);
             });
+        }
+
+        if ($request->boolean('official')) {
+            $query->where('is_official', true);
         }
 
         $sort = $request->string('sort')->toString();

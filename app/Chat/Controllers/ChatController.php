@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Chat\Controllers;
 
+use App\Character\Enums\CharacterKind;
 use App\Character\Models\CharacterModel;
 use App\Chat\Enums\LimitType;
 use App\Chat\Enums\SenderRole;
 use App\Chat\Models\ChatModel;
 use App\Chat\Models\MessageLimitModel;
 use App\Chat\Models\MessageModel;
+use App\Dating\HasAcceptedDatingTerms;
 use App\User\EnsureGhostUser;
 use App\User\Models\UserModel;
 use Illuminate\Contracts\View\View;
@@ -41,24 +43,35 @@ class ChatController
             'character_id' => ['required', Rule::exists(CharacterModel::class, 'id')],
         ]);
 
+        $character = CharacterModel::query()->whereKey($data['character_id'])->firstOrFail();
+
+        if ($character->kind === CharacterKind::Dating) {
+            $authUser = $request->user();
+
+            if ($authUser === null || $authUser->isGuest()) {
+                return redirect()->route('login')
+                    ->with('status', 'Zaloguj się, żeby napisać do tej postaci.');
+            }
+
+            if (! app(HasAcceptedDatingTerms::class)->check($authUser)) {
+                return redirect()->route('dating.onboarding');
+            }
+        }
+
         $user = app(EnsureGhostUser::class)->forRequest($request);
 
         $chat = ChatModel::firstOrCreate([
             'user_id' => $user->id,
-            'character_id' => $data['character_id'],
+            'character_id' => $character->id,
         ]);
 
-        if ($chat->wasRecentlyCreated) {
-            $character = CharacterModel::query()->whereKey($data['character_id'])->first();
-
-            if ($character !== null && filled($character->greeting)) {
-                MessageModel::create([
-                    'chat_id' => $chat->id,
-                    'sender_role' => SenderRole::Character,
-                    'character_id' => $character->id,
-                    'content' => $character->greeting,
-                ]);
-            }
+        if ($chat->wasRecentlyCreated && filled($character->greeting)) {
+            MessageModel::create([
+                'chat_id' => $chat->id,
+                'sender_role' => SenderRole::Character,
+                'character_id' => $character->id,
+                'content' => $character->greeting,
+            ]);
         }
 
         return redirect()->route('chat.show', $chat);

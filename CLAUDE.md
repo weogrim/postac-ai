@@ -295,7 +295,7 @@ Najczęstsze pułapki:
 - **Auto-discovery komend** w `bootstrap/app.php`: `->withCommands([...glob(__DIR__.'/../app/*/Commands') ?: []])`. Nowa komenda w dowolnym module = działa bez ręcznej rejestracji.
 - **Greeting message** (`characters.greeting` TEXT NULL): `ChatController::store` po `firstOrCreate(user_id+character_id)` — jeśli `wasRecentlyCreated AND filled($character->greeting)` → `MessageModel::create([sender_role=Character, character_id, content=greeting])`. Bez `tokens_usage`, bez `ReserveMessageQuota` (greeting jest free intro, nie konsumuje quota). AI widzi greeting w history (naturalna kontynuacja).
 - **`CharacterModel::kind === CharacterKind::Dating` → 404 na publicznym profilu**: `CharacterController::show` aborts dla dating characters (Faza 5 doda osobny endpoint `/randki/{character}`). Wszystkie scope'y na home/index/search filtrują przez `regular()` scope.
-- **`<x-character-card>`**: link do `/characters/{id}` (nie POST chat — chat-flow przez profil), badge "Oficjalna" gdy `is_official=true`, autor hidden gdy `is_official`, popularity counter ("X rozmów dziś") gdy `popularity_24h > 0`.
+- **`<x-character-card>`**: link do `route('character.show', $character)` (Faza 6: rezolwuje na `/postacie/{slug}` przez explicit `{character:slug}` binding), badge "Oficjalna" gdy `is_official=true`, autor hidden gdy `is_official`, popularity counter ("X rozmów dziś") gdy `popularity_24h > 0`.
 - **PHPStan + Spatie Tags**: cast enum/scalar properties wymagają `@property` docblocków (`@property CharacterKind $kind`, `@property bool $is_official`, `@property int $popularity_24h`). `tagsWithType()` zwraca Collection — nie używamy w relacji.
 
 ### Guest flow (moduły `User/` + `Auth/` + `Chat/`)
@@ -320,6 +320,66 @@ Najczęstsze pułapki:
 - **GC ghostów**: `php artisan users:gc-guests --inactive-days=7` (cron daily). Query: `User::query()->guests()->where('created_at', '<', now()-N)->whereNotIn('id', recent_message_user_ids)`. Hard delete (cascade chats/messages przez FK). Proxy aktywności: `messages.created_at` zamiast `users.updated_at` (touch nie zawsze).
 - **Filament UserResource** — kolumna `account_type` (Gość/Niezweryfikowany/Zweryfikowany badge) + filter (custom `query` callback, bez schemy).
 - **Cashier guard nie potrzebny** — `/buy*` i `/me/billing` w grupie `verified`, ghost (no email_verified_at) automatycznie odbity.
+
+### Moderation (moduł `Moderation/`)
+
+- **Provider-agnostic interface** `App\Moderation\Contracts\ModerationProvider` z metodą `check(string $text): ModerationResult`. Implementacje: `OpenAiModerationProvider` (default w prod, `Http::withToken` na `/v1/moderations` z `omni-moderation-latest`), `NoOpProvider` (default w `.env.testing` przez `MODERATION_PROVIDER=noop`). Bind w `AppServiceProvider::register()` — `match (config('moderation.default'))` produkuje provider per-request. Provider używa `app(ModerationProvider::class)->check(...)` (NIE `__invoke`, NIE wstrzykiwana).
+- **`ModerationResult`** readonly DTO: `flagged: bool`, `categories: array<string, float>` (per-kategoria score), `score: float` (max). Helper `isSelfHarm(): bool` — true gdy dowolna kategoria zawiera `self-harm` z score ≥ 0.5.
+- **OpenAI Moderation API** — endpoint `POST /v1/moderations`, **darmowy**, body `{"input": "..."}`. Response `results[0]` ma `flagged` + `category_scores` (mapowany 1:1 do DTO). Timeout 3s, fail-open (timeout/HTTP error → return `flagged=false` + `report($e)`).
+- **Input check** w `MessageController::store` — przed `ReserveMessageQuota`:
+  1. Self-harm rate limit guard: `RateLimiter::tooManyAttempts('selfharm:'.$user->id, 3)` → throw `OutOfMessagesException` z helpline message.
+  2. `$moderation->check($content)` — flagged + `isSelfHarm()` → log `SafetyEvent` + `RateLimiter::hit` + utwórz user msg + character msg z **już wypełnionym** helpline content (NO `data-streaming` flag, frontend nie odpala `EventSource`). Zwrot bez `X-Character-Message-Id` header.
+  3. Flagged + non-self-harm → throw `ContentBlockedException(categories, 'input')`.
+- **Output check** w `MessageStreamController::__invoke` — po pełnym streamingu (zbieramy `$full`):
+  1. `$moderation->check($full)` — `isSelfHarm()` → log SafetyEvent + RateLimiter hit + nadpisz `$full = HelplineMessage->polish()` + wyślij SSE `data: {"replace":"..."}`. Inne flagged → `$full = HelplineMessage->fallback()` + SSE replace.
+  2. `$characterMessage->update(['content' => $full, 'tokens_usage' => $completionTokens])`.
+- **Frontend SSE replace** w `chat/show.blade.php`: handler EventSource sprawdza `payload.replace` → `bubble.textContent = payload.replace` (nadpisuje całe content; w przeciwieństwie do `delta` które append'uje). Po `payload.stop` → close.
+- **`HelplineMessage`** klasa biznesowa (root modułu) — `polish()` (pełen helpline z 116 111 + 800 70 2222 + 112) i `fallback()` ("Przepraszam, ten temat mnie przerasta..."). Wywołanie: `app(HelplineMessage::class)->polish()`.
+- **`SafetyEventModel`** — audit trail (`user_id`, `category`, `created_at`, indeksy `(user_id, created_at)` + `category`). **Bez treści wiadomości** (privacy by design). Loguje przy każdej self-harm detection (input lub output).
+- **Self-harm rate limit** — `RateLimiter::hit('selfharm:'.$user->id, 300)` przy każdej self-harm detection. Próba 4. msg → `OutOfMessagesException` z message "Daj sobie chwilę odpocząć..." + 116 111. Limit 3 / 5min konfigurowalny przez `config/moderation.php` (`self_harm.rate_limit`/`self_harm.window_seconds`).
+- **`ContentBlockedException`** renderer w `bootstrap/app.php`: HTMX → 422 + `htmx/content-blocked.blade.php` (OOB toast "zmieńmy temat") + `HX-Reswap: none`. Non-HTMX → `back()->withErrors(['content' => $e->getMessage()])->withInput()`.
+- **Test pattern**: `app()->bind(ModerationProvider::class, fn () => new \Tests\Support\FakeModerationProvider(flagged: true, categories: ['self-harm' => 0.91]))`. Output test: bind closure z licznikiem (`$count++`) — pierwszy call (input) flagged=false, drugi call (output) flagged=true. Drain stream przez `@$response->baseResponse->sendContent()` (jak w MessageStreamingTest).
+
+### Reporting (moduł `Reporting/`)
+
+- **Polymorphic** `ReportModel` z `reportable_type`/`reportable_id` (string ID — bo `Character` ma ULID, `Message` int, jednolite jako string). Whitelist w `ReportRequest::rules`: `Rule::in(['message', 'character'])`. Morph map zarejestrowane w `AppServiceProvider::boot` (`message`, `character`, plus `report`, `safety_event`).
+- **Enums**: `ReportReason` (Nsfw/Harassment/Misinformation/Impersonation/SelfHarmPromotion/Other) i `ReportStatus` (Pending/Resolved/Dismissed) implementują `HasLabel` (i `HasColor` dla Status — Filament badge colors). Cast na modelu.
+- **Reporter zawsze auth** — `ReportController::store` wywołuje `app(EnsureGhostUser::class)->forRequest($request)`, więc niezalogowany dostaje ghost session i `reporter_id` jest zawsze wypełnione. `reports.reporter_id` FK NOT NULL.
+- **Rate limit reporterów**: `RateLimiter::tooManyAttempts('report:'.$user->id, 5)` → 429. `RateLimiter::hit('report:'.$user->id, 60)` po success.
+- **Existence check w controllerze** (nie w validation): `match` na `reportable_type` → `MessageModel`/`CharacterModel`. Brak → `abort(404)`. Validation tylko walidcuje *dozwolone typy* + format ID.
+- **`<x-report-button type=... :id=...>`** komponent — DaisyUI `<dialog>` modal z formą HTMX `hx-post=route('report.store') hx-swap=none`. Po submit `hx-on::after-request` zamyka modal i resetuje formę. Renderowany pod każdą AI message (`chat/_message.blade.php` w `chat-footer` gdy `$isCharacter && ! $streaming && content !== ''`). Dodać też pod kartą postaci (Faza Discovery, optional).
+- **Filament** `ReportResource` (read-only — `canCreate: false`, brak EditPage). Tabela: kolumna **"Czeka"** ze stanem dynamicznym (godziny od `created_at`, `color('danger')` gdy >24h pending). Filtr "Pilne (>24h pending)" + standardowe filtry status/reason/type. Akcje row: `Resolve` / `Dismiss` (visible gdy `Pending`, ustawia `resolved_by` + `resolved_at`).
+- **`PendingReportsOverview`** widget StatsOverview na dashboardzie: 3 stat-y (Pending count, Overdue >24h count w danger, Resolved today). Widget `ReportResource::getNavigationBadge()` pokazuje pending count w sidebar (color='danger' jeśli overdue exists).
+- **Scopes** na `ReportModel`: `pending()` (`status=pending`) i `overdue($hours=24)` (pending + `created_at < now-24h`). PHPStan wymaga `@param Builder<ReportModel> $query` docblock dla scope methods + `@return MorphTo<Model, $this>` / `BelongsTo<UserModel, $this>` dla relacji.
+
+### Dating (moduł `Dating/`)
+
+- **Profil 1:1 z postacią** — `DatingProfileModel` ma `character_id` (ULID) jako PK + FK cascade. Wymaga `$primaryKey='character_id'`, `$incrementing=false`, `$keyType='string'`. `CharacterModel.datingProfile()` `HasOne`. Kolumny: `age` smallint (CHECK 18-99), `city` string(64), `bio` text, `interests` jsonb default `[]`, `accent_color` string(7) nullable.
+- **Wiek 18+** twardy guard — `dating_profiles_age_check` w migracji (`age >= 18 AND age <= 99`). Walidacja Filament też ogranicza, ale CHECK to last line of defense.
+- **Routes**: `GET /randki` (publiczny index), `GET /randki/{character}` (publiczny profil), `GET|POST /randki/onboarding` (auth-only). Kolejność w `routes/web.php`: index → middleware('auth') group z onboarding → show — żeby `/randki/onboarding` nie matchował `{character}` ULID-bindingu.
+- **Onboarding**: dedykowana strona z `dating-terms` checkbox + treść. `DatingOnboardingController::show` redirectuje do `dating.index` jeśli user już ma consent (idempotent). `DatingOnboardingController::store` używa `app(RecordConsents::class)->record($user, [DocumentSlug::DatingTerms], $request)` — reuse z modułu Legal. Brak opublikowanego dokumentu `dating-terms` → `HasAcceptedDatingTerms::check()` zwraca true (failover otwarty, żeby nie blokować całej sekcji jeśli legal team jeszcze nie wpisał treści).
+- **`HasAcceptedDatingTerms`** klasa biznesowa (`App\Dating\HasAcceptedDatingTerms`) — `check(UserModel $user): bool`. Wywołanie: `app(HasAcceptedDatingTerms::class)->check($user)`. Reused w trzech miejscach: `DatingController::index/show` (auth user bez consent → redirect onboarding), `ChatController::store` (kind=Dating + auth bez consent → redirect onboarding).
+- **Guest gate na `chat.store`**: w `ChatController::store` inline guard — jeśli `character->kind === Dating && (auth user is null || isGuest)` → `redirect()->route('login')`. Tylko dla dating; regular charakter pozostaje ghost-friendly (`EnsureGhostUser` dalej tworzy ghosta). Nie używamy middleware bo guard musi *najpierw* znaleźć character w DB.
+- **Prompt template injection** w `MessageStreamer::stream` — przed `new AnonymousAgent`: jeśli `$chat->character->kind === CharacterKind::Dating`, dokleja `app(PromptTemplates::class)->flirt()` do `instructions`. **Klasa biznesowa `App\Dating\PromptTemplates`** w roocie modułu z metodą `flirt(): string` (named, NIE `__invoke`). Template po polsku zawiera: zakaz NSFW, instrukcję subtle deflection ("Hej, wolny tor 😄"), zakaz udawania prawdziwego człowieka, ciągłość kontekstu rozmowy. Reuse moderation pipeline z Fazy 4 — input/output check + self-harm protocol działają niezmienione (prompt template to dodatkowa warstwa, nie zastępuje moderation API).
+- **Filament `DatingProfileResource`** — pełen CRUD, ale tworzenie zarządza dwoma modelami: `CreateDatingProfile::handleRecordCreation(array $data): Model` w `DB::transaction` tworzy `CharacterModel` (`kind=Dating`, `is_official=true`, `user_id=admin`) + `DatingProfileModel` z `character_id` jako PK. `EditDatingProfile::mutateFormDataBeforeFill` ładuje pola Charactera (`character_name/description/greeting/prompt`) z relacji do formy; `handleRecordUpdate` synchronizuje oba modele w transakcji. Form używa `Section`-ów (Postać + Profil randkowy). `TagsInput` na `interests`, `ColorPicker` na `accent_color`.
+- **Wykluczenie z regular profile**: `CharacterController::show` aborts 404 dla `kind===Dating` (Faza 2). Postać randkowa ma WYŁĄCZNIE endpoint `/randki/{character}`. Karta postaci `<x-character-card>` używana tylko dla `regular` (DatingController::index ma własny markup z `dating_profiles` polami: imię+wiek, miasto, bio, accent_color jako CSS var).
+- **PHPStan + DatingProfileModel**: `@property array<int, string> $interests` (cast as array dla jsonb), `@property string $character_id` (ULID). `BelongsTo<CharacterModel, $this>` docblock dla `character()`. CharacterModel `HasOne<DatingProfileModel, $this>`.
+
+### Catalog (slug + is_official tooling)
+
+- **URL strategy**: `/postacie/{slug}` jest **jedynym** publicznym URL postaci (regular). `/characters/{ULID}` znikło (404). Browse list (`/characters`) i `/characters/search` (HTMX) zostają — to inne endpointy (lista, nie profil). Dating ma osobne `/randki/{character}` po ULID — nie używa slugu.
+- **Slug column**: `characters.slug VARCHAR(160) UNIQUE NULLABLE`. Nullable — bo dating profile slugu nie potrzebują (kind=dating zostaje z `slug=null`). Index unique pozwala na wiele NULL (Postgres).
+- **Auto-generation w `CharacterModel::booted` `static::saving`**: jeśli `kind === Regular AND (slug IS NULL OR slug === '')` → `Str::slug($name)` z dedup numerowym (`-2`, `-3`, ...). Sprawdza `withTrashed()` żeby nie kolidować z soft-deleted. **Generowany RAZ** przy create — rename `name` nie regeneruje (SEO-stable URL).
+- **Admin override w Filamencie**: `CharacterForm` ma `TextInput::make('slug')` z regex `^[a-z0-9-]+$`, `unique(ignoreRecord: true)`. Admin może ręcznie podmienić slug; user (autor non-admin) nie ma w `CharacterStoreRequest` żadnego pola slug — auto-gen tylko.
+- **`protected $attributes`** na `CharacterModel` ustawia PHP defaulty (`kind=regular`, `is_official=false`, `popularity_24h=0`) — bez tego `$character->kind` jest null w `static::saving` (DB default `regular` aktywuje się dopiero przy INSERT, więc event nie widziałby kindu). Bez defaultu factory tworzy character bez kindu → saving boot pomija slug generation.
+- **Filament tooling** w `CharactersTable`:
+  - `IconColumn::make('is_official')->boolean()->sortable()` — kolumna z ikoną check/x.
+  - `TernaryFilter::make('is_official')` — Wszystkie/Tylko oficjalne/Tylko nieoficjalne.
+  - `BulkAction::make('promote')` z `requiresConfirmation()` + `$records->each->update(['is_official' => true])` + `deselectRecordsAfterCompletion()`. Analogicznie `unpromote`.
+- **`?official=true` filter** w `CharacterController::index`: `$request->boolean('official')` → query `where('is_official', true)`. Widoczny checkbox `<input type="checkbox" name="official">` na `/characters` index, integracja z HTMX `change from:input[name=official]` triggerem.
+- **Test slug w `tests/Feature/Character/SlugTest.php`** — pokrywa: auto-gen, no-regen-on-rename, admin override, dedup `-2/-3`, dating slug=null, route resolution, 404 na starym ULID URL. Uses `RefreshDatabase` — istotne, bo dedup query używa `withTrashed()`.
+- **Test bulk** w `tests/Feature/Filament/CharacterPromoteBulkTest.php` — `Livewire::test(ListCharacters::class)->callTableBulkAction('promote', [$id1, $id2])`. **NIE `callAction` z named param `records`** — dla bulk actions w Filament 5 jest dedykowana metoda `callTableBulkAction(string $name, array $recordIds)`.
+- **Octane cache routes**: po dodaniu route `/postacie/{character:slug}` zawsze `octane:reload`. Testy bootują świeżo, więc lokalnie nie wymaga, ale dev/prod tak.
 
 ### Filament admin (moduł `Filament/`)
 
@@ -347,19 +407,22 @@ Najczęstsze pułapki:
 
 - `composer.json` / `package.json` — zmiany przez `composer require` / `npm i` w kontenerze, nie ręczna edycja. Autoload PSR-4: `"App\\": "app/"` (płasko, bez `App\Modules\...`).
 - `.env` / `.env.example` — synchronizuj strukturę.
-- `bootstrap/app.php` — globalne renderery (`ValidationException`, `App\Chat\Exceptions\OutOfMessagesException`), CSRF exclude `stripe/webhook`, Sentry `Integration::handles`.
+- `bootstrap/app.php` — globalne renderery (`ValidationException`, `App\Chat\Exceptions\OutOfMessagesException`, `App\Moderation\Exceptions\ContentBlockedException`), CSRF exclude `stripe/webhook`, alias `guest.ghost`, Sentry `Integration::handles`.
 - `bootstrap/providers.php` — rejestruje `App\System\Providers\{App,AdminPanel}ServiceProvider`. Brak ServiceProviderów per moduł.
-- `app/System/Providers/AppServiceProvider.php` — `Gate::before` super_admin, `Cashier::ignoreRoutes` + `useCustomerModel`, `ImageManipulator::defineVariant`, `Relation::enforceMorphMap`, `Factory::guessFactoryNamesUsing` (strip `Model` suffix).
+- `app/System/Providers/AppServiceProvider.php` — `Gate::before` super_admin, `Cashier::ignoreRoutes` + `useCustomerModel`, **`bind(ModerationProvider::class)` → match na `config('moderation.default')`**, `ImageManipulator::defineVariant`, `Relation::enforceMorphMap` (m.in. `safety_event`/`report`), `Factory::guessFactoryNamesUsing` (strip `Model` suffix).
 - `app/System/Providers/AdminPanelProvider.php` — Filament panel `/admin` config + auto-discovery resources/widgets/pages.
-- `app/Character/Models/CharacterModel.php` — `booted()` cascade soft delete na chats; `MediableInterface` + `Mediable`; `HasTags` (Spatie); `kind` enum cast (`CharacterKind`), `is_official` bool, `greeting`/`description`/`popularity_24h` columns; scopes `Official`/`Regular`/`Dating`; relacje `categories()`/`freeTags()` (`tags()->where('type', ...)`).
+- `app/Character/Models/CharacterModel.php` — `booted()` cascade soft delete na chats + `static::saving` slug auto-gen (kind=Regular AND slug NULL); `$attributes` defaults (kind=regular, is_official=false, popularity_24h=0); `MediableInterface` + `Mediable`; `HasTags` (Spatie); `kind` enum cast (`CharacterKind`), `is_official` bool, `greeting`/`description`/`popularity_24h`/`slug` columns; scopes `Official`/`Regular`/`Dating`; relacje `categories()`/`freeTags()` (`tags()->where('type', ...)`).
 - `app/Character/Enums/CharacterKind.php` — backed enum `regular`/`dating` z `HasLabel`.
-- `app/Character/Controllers/CharacterController.php` — `index` (browse + ILIKE search + category filter + sort), `search` (HTMX fragment), `show` (profil, 404 dla dating), `create`/`store` (auth+verified).
+- `app/Character/Controllers/CharacterController.php` — `index` (browse + ILIKE search + category filter + sort + `?official=true`), `search` (HTMX fragment), `show` (profil regular, 404 dla dating), `create`/`store` (auth+verified, brak pola slug — auto-gen).
 - `app/Character/Commands/RecalculatePopularityCommand.php` — `characters:recalc-popularity` (cron co 5 min, count distinct chats z wiadomościami w 24h).
 - `app/Filament/Resources/Tags/` — CRUD dla Spatie Tags (name, type=category|tag, order_column).
+- `app/Filament/Resources/Characters/{Schemas/CharacterForm,Tables/CharactersTable}.php` — Faza 6: `TextInput::make('slug')` z regex + `unique(ignoreRecord: true)` w form; `IconColumn::make('is_official')`, `TernaryFilter::make('is_official')`, `BulkAction` `promote`/`unpromote` w table.
 - `database/migrations/*_create_tag_tables.php` — Spatie published, ZMODYFIKOWANE: `taggable_id` string + `name`/`slug` jsonb (zamiast json — Postgres equality dla DISTINCT).
 - `database/migrations/*_enable_pg_trgm_and_index_characters.php` — `CREATE EXTENSION pg_trgm` + GIN trgm indexy na `characters.name` i `characters.description`.
-- `app/Chat/Controllers/MessageController.php` — `store` (tworzenie user+empty character w transakcji).
-- `app/Chat/Controllers/MessageStreamController.php` — single-action invokable, SSE stream (serce streamingu, używa `App\Chat\MessageStreamer`).
+- `database/migrations/*_add_slug_to_characters_table.php` — Faza 6: `slug VARCHAR(160) UNIQUE NULLABLE` + backfill istniejących `kind=regular` (`Str::slug + dedup numeryczny`).
+- `routes/web.php` — `Route::get('/postacie/{character:slug}', ...)` z `name('character.show')`. Stary `/characters/{ULID}` USUNIĘTY (404). `/characters` (browse list) i `/characters/search` (HTMX) zostają.
+- `app/Chat/Controllers/MessageController.php` — `store` (tworzenie user+empty character w transakcji + input moderation + self-harm helpline shortcut).
+- `app/Chat/Controllers/MessageStreamController.php` — single-action invokable, SSE stream (serce streamingu, używa `App\Chat\MessageStreamer`) + output moderation z SSE `replace` event.
 - `app/Chat/MessageStreamer.php` — klasa biznesowa: budowa historii + `AnonymousAgent` streaming.
 - `app/Chat/{GrantDailyLimits,ReserveMessageQuota}.php` — atomic select+increment, premium bypass, on-demand grant. Klasy biznesowe w roocie modułu.
 - `app/Chat/Settings/ChatSettings.php` — Spatie Settings (typowane pola: `defaultModel`, `historyLength`).
@@ -370,6 +433,18 @@ Najczęstsze pułapki:
 - `app/Auth/Controllers/{Register,Login,PasswordResetLink,NewPassword,EmailVerificationNotice,VerifyEmail,EmailVerificationResend,SocialAuth,AuthComplete}Controller.php` + `app/Auth/Requests/{Login,Register,AuthComplete}Request.php`. Register/Social inline upgrade-flow ghosta (bez prywatnych helperów).
 - `app/Auth/Middleware/RedirectIfRegistered.php` — alias `guest.ghost` w `bootstrap/app.php`. Wpuszcza ghostów na /register i /login.
 - `app/Legal/{Models/{LegalDocumentModel,ConsentModel},Enums/DocumentSlug,Controllers/LegalDocumentController,Middleware/EnsureLatestConsents,RecordConsents}.php` — moduł prawny (dokumenty + zgody + versioning + commonmark render).
+- `app/Moderation/{Contracts/ModerationProvider,DTO/ModerationResult,Providers/{OpenAi,NoOp}Provider,Exceptions/ContentBlockedException,HelplineMessage,Models/SafetyEventModel}.php` + `config/moderation.php` — input/output moderation, NSFW i self-harm protocol, audit trail.
+- `app/Reporting/{Models/ReportModel,Enums/{ReportReason,ReportStatus},Controllers/ReportController,Requests/ReportRequest}.php` — polymorphic zgłoszenia treści (message/character) + rate limit reporterów.
+- `app/Filament/Resources/Reports/{ReportResource,Pages/ListReports,Tables/ReportsTable}.php` — read-only list raportów + akcje Resolve/Dismiss + SLA-aware kolumna „Czeka" (>24h danger).
+- `app/Filament/Widgets/PendingReportsOverview.php` — StatsOverview (Pending / Overdue >24h / Resolved today).
+- `app/Dating/{Models/DatingProfileModel,Controllers/{DatingController,DatingOnboardingController},Requests/DatingOnboardingRequest,PromptTemplates,HasAcceptedDatingTerms}.php` — moduł sekcji Randki: profile 1:1 z postacią, onboarding consent (`dating-terms`), prompt template SFW flirt, helper sprawdzający consent.
+- `app/Filament/Resources/DatingProfiles/{DatingProfileResource,Pages/{Create,Edit,List}DatingProfile,Schemas/DatingProfileForm,Tables/DatingProfilesTable}.php` — CRUD profili randkowych w Filamencie. CreatePage tworzy `CharacterModel` (`kind=Dating`, `is_official=true`) + `DatingProfileModel` w `DB::transaction`. EditPage synchronizuje oba modele via `mutateFormDataBeforeFill` + `handleRecordUpdate`.
+- `database/migrations/*_create_dating_profiles_table.php` — `character_id` ULID PK + FK cascade, `age` smallint CHECK 18-99, `city`, `bio`, `interests` jsonb, `accent_color`. Dodatkowo CHECK constraint `dating_profiles_age_check` jako last line of defense.
+- `resources/views/dating/{index,show,onboarding}.blade.php` — public list profili + profil + dedykowany onboarding consent.
+- `app/Character/Models/CharacterModel.php` — `datingProfile(): HasOne<DatingProfileModel, $this>` (Faza 5).
+- `app/Chat/MessageStreamer.php` — inject `app(PromptTemplates::class)->flirt()` do `instructions` gdy `character->kind === CharacterKind::Dating` (Faza 5).
+- `app/Chat/Controllers/ChatController.php` — guard kind=Dating: anon/ghost → redirect login; auth bez consent → redirect dating.onboarding (Faza 5).
+- `routes/web.php` — `/randki`, `/randki/onboarding` (auth-only), `/randki/{character}`. Kolejność: index → middleware('auth') onboarding → show.
 - `app/User/Models/UserModel.php` — `isGuest()` + scopes `guests()`/`registered()`, `@property` docblocki dla casts. Cashier `Billable`, Spatie `HasRoles`, Filament `FilamentUser`, `MustVerifyEmail`.
 - `app/User/EnsureGhostUser.php` — klasa biznesowa, `forRequest(Request): UserModel`, IP rate limit 5/min.
 - `app/User/Commands/GcGuestUsersCommand.php` — `users:gc-guests --inactive-days=7` (cron daily), kasuje ghostów bez wiadomości.
@@ -378,10 +453,10 @@ Najczęstsze pułapki:
 - `app/{Character,Chat,User}/Policies/` — Policies per moduł, auto-discovery przez nazwę modelu (po strip sufiksu `Model`).
 - `routes/{web,console}.php` — routing + schedule (Laravel 13: bez `Kernel.php`). Routy auth w grupach `guest`/`auth`/`verified`. Importy zawsze z modułów (`use App\Chat\Controllers\MessageController;`).
 - `resources/views/layouts/app.blade.php` — `hx-boost:inherited`, `#toasts` container, Sentry meta tagi.
-- `resources/views/components/{alert,toast,navbar,auth-card,form-input,character-card}.blade.php` — DaisyUI komponenty, mobile-first.
+- `resources/views/components/{alert,toast,navbar,auth-card,form-input,character-card,report-button}.blade.php` — DaisyUI komponenty, mobile-first.
 - `resources/views/chat/show.blade.php` + `chat/_message.blade.php` — frontend streamingu (EventSource, `data-streaming` attr, `htmx:after:swap`).
 - `resources/views/chat/{_composer,_gate-modal}.blade.php` — composer (form lub locked CTA-bar) + dialog modal dla guest soft-gate.
-- `resources/views/htmx/guest-gate.blade.php` — OOB swap dla `OutOfMessagesException` ghosta (replace `#composer` + `#register-gate`).
+- `resources/views/htmx/{guest-gate,content-blocked,report-thanks}.blade.php` — HTMX OOB fragments: guest soft-gate, moderation block toast, report success toast.
 - `resources/css/app.css` / `resources/js/app.js` — Tailwind + DaisyUI + HTMX + Sentry browser wire-up.
 - `Dockerfile` / `Dockerfile.dev` — `dunglas/frankenphp:php8.5` Debian. Rebuild gdy zmieniasz rozszerzenia PHP. Zmiana glibc wymaga `rm -rf node_modules package-lock.json && npm install` w kontenerze (Rolldown bindings).
 - `Docker/supervisord.conf` — octane + queue + cron, socket w `/tmp/`. Rebuild po zmianie.
@@ -393,4 +468,5 @@ Najczęstsze pułapki:
 - `database/factories/` — klasycznie (poza modułami). `*Factory` matchowane do `*Model` przez callback w `AppServiceProvider::boot`.
 - `tests/Feature/<Module>/` — testy ułożone per moduł (`Auth/`, `Billing/`, `Character/`, `Chat/`, `Filament/`, `Home/`, `Legal/`, `User/`, `System/`).
 - `tests/Pest.php` — globalne helpery testowe (m.in. `loginAsAdmin(): UserModel`).
+- `tests/Support/FakeModerationProvider.php` — test double dla `ModerationProvider`. Bind przez `app()->bind(ModerationProvider::class, fn () => new FakeModerationProvider(flagged: true, categories: ['self-harm' => 0.9]))` (NIE `$this->app->bind` — protected w Pest closure).
 - `docs/ARCHITEKTURA.md` + `docs/ARCHITEKTURA_RULES.md` — pełna referencja architektury modularnej. Zaglądamy tu, jeśli pojawia się pytanie „gdzie to położyć?" lub „jak to nazwać?".

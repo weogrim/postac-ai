@@ -135,7 +135,7 @@ it('shows character profile page', function () {
         'description' => 'Opis postaci.',
     ]);
 
-    $this->get('/characters/'.$character->id)
+    $this->get('/postacie/'.$character->slug)
         ->assertOk()
         ->assertSee('Profil Test')
         ->assertSee('Opis postaci.');
@@ -147,7 +147,7 @@ it('returns 404 for dating characters on public profile', function () {
         'kind' => CharacterKind::Dating,
     ]);
 
-    $this->get('/characters/'.$character->id)->assertNotFound();
+    $this->get('/postacie/'.($character->slug ?? $character->id))->assertNotFound();
 });
 
 it('shows official badge on profile', function () {
@@ -157,7 +157,7 @@ it('shows official badge on profile', function () {
         'is_official' => true,
     ]);
 
-    $this->get('/characters/'.$character->id)
+    $this->get('/postacie/'.$character->slug)
         ->assertOk()
         ->assertSee('Oficjalna');
 });

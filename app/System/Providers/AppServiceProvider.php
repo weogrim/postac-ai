@@ -10,7 +10,13 @@ use App\Chat\Models\MessageLimitModel;
 use App\Chat\Models\MessageModel;
 use App\Legal\Models\ConsentModel;
 use App\Legal\Models\LegalDocumentModel;
+use App\Moderation\Contracts\ModerationProvider;
+use App\Moderation\Models\SafetyEventModel;
+use App\Moderation\Providers\NoOpProvider;
+use App\Moderation\Providers\OpenAiModerationProvider;
+use App\Reporting\Models\ReportModel;
 use App\User\Models\UserModel;
+use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Gate;
@@ -26,6 +32,22 @@ class AppServiceProvider extends ServiceProvider
     {
         Cashier::ignoreRoutes();
         Cashier::useCustomerModel(UserModel::class);
+
+        $this->app->bind(ModerationProvider::class, function (Application $app): ModerationProvider {
+            $name = (string) config('moderation.default', 'noop');
+            $config = (array) config('moderation.providers.'.$name, []);
+            $driver = $config['driver'] ?? $name;
+
+            return match ($driver) {
+                'openai' => new OpenAiModerationProvider(
+                    apiKey: (string) ($config['key'] ?? ''),
+                    baseUrl: (string) ($config['url'] ?? 'https://api.openai.com/v1'),
+                    model: (string) ($config['model'] ?? 'omni-moderation-latest'),
+                    timeoutSeconds: (float) ($config['timeout'] ?? 3.0),
+                ),
+                default => new NoOpProvider,
+            };
+        });
     }
 
     public function boot(): void
@@ -38,6 +60,8 @@ class AppServiceProvider extends ServiceProvider
             'message_limit' => MessageLimitModel::class,
             'legal_document' => LegalDocumentModel::class,
             'consent' => ConsentModel::class,
+            'safety_event' => SafetyEventModel::class,
+            'report' => ReportModel::class,
         ]);
 
         Factory::guessFactoryNamesUsing(static function (string $modelName): string {

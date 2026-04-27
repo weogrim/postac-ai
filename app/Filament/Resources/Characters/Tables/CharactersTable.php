@@ -5,15 +5,19 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Characters\Tables;
 
 use App\Character\Models\CharacterModel;
+use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
+use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Collection;
 
 class CharactersTable
 {
@@ -29,6 +33,11 @@ class CharactersTable
                 TextColumn::make('name')
                     ->label('Nazwa')
                     ->searchable()
+                    ->sortable(),
+
+                IconColumn::make('is_official')
+                    ->label('Oficjalna')
+                    ->boolean()
                     ->sortable(),
 
                 TextColumn::make('author.name')
@@ -53,6 +62,11 @@ class CharactersTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                TernaryFilter::make('is_official')
+                    ->label('Oficjalne')
+                    ->placeholder('Wszystkie')
+                    ->trueLabel('Tylko oficjalne')
+                    ->falseLabel('Tylko nieoficjalne'),
                 TrashedFilter::make(),
             ])
             ->recordActions([
@@ -60,6 +74,20 @@ class CharactersTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
+                    BulkAction::make('promote')
+                        ->label('Oznacz jako oficjalne')
+                        ->icon('heroicon-o-star')
+                        ->color('warning')
+                        ->requiresConfirmation()
+                        ->action(fn (Collection $records) => $records->each->update(['is_official' => true]))
+                        ->deselectRecordsAfterCompletion(),
+                    BulkAction::make('unpromote')
+                        ->label('Cofnij oznaczenie')
+                        ->icon('heroicon-o-x-mark')
+                        ->color('gray')
+                        ->requiresConfirmation()
+                        ->action(fn (Collection $records) => $records->each->update(['is_official' => false]))
+                        ->deselectRecordsAfterCompletion(),
                     DeleteBulkAction::make(),
                     ForceDeleteBulkAction::make(),
                     RestoreBulkAction::make(),

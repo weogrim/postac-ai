@@ -394,7 +394,91 @@ Route::middleware('auth')->group(function (): void {
 
 ---
 
-## Faza 4 — Moderation + Reporting
+## ✅ Faza 4 — Moderation + Reporting — DONE (2026-04-28)
+
+**Cel:** NSFW filter input/output (PRD M7) + system zgłoszeń (PRD M13). Bez tego nie wypuszczamy na 13+.
+
+### Decyzje strategiczne (Faza 4, zatwierdzone)
+
+| Pytanie | Decyzja |
+|---|---|
+| Output flagged przez moderation | **Replace całością fallbackiem** — SSE event `replace` nadpisuje content bubble. Bez regenerate (uproszczone vs PRD-3x). |
+| Self-harm protocol — input czy output? | **Input + output (oba kierunki)**. Input: helpline content od razu w `MessageController::store` (no streaming). Output: SSE replace na helpline po stream-end. |
+| Reporter wymagany czy nullable? | **Wymagany — auth zawsze**. Niezalogowany dostaje ghost session przez `EnsureGhostUser` zanim zgłosi. |
+| Filament SLA UI | **Widget StatsOverview + kolumna pending-age + filter**. Stat-y: Pending/Overdue/Resolved today + sidebar badge (color='danger' gdy overdue). |
+
+### Co zaimplementowano
+
+**Moderation (`app/Moderation/`)**:
+- `Contracts/ModerationProvider.php` interface, `DTO/ModerationResult.php` (readonly + `isSelfHarm()` helper).
+- `Providers/OpenAiModerationProvider.php` — `Http::withToken` na `/v1/moderations` (free, `omni-moderation-latest`), 3s timeout, fail-open.
+- `Providers/NoOpProvider.php` — zwraca flagged=false (default w `.env.testing` przez `MODERATION_PROVIDER=noop`).
+- `config/moderation.php` — `default => env('MODERATION_PROVIDER', 'openai')` + `self_harm.rate_limit/window_seconds` config.
+- Bind w `AppServiceProvider::register()` przez `match (config('moderation.default'))`.
+- `Exceptions/ContentBlockedException.php` + renderer w `bootstrap/app.php` (HTMX 422 + OOB toast / non-HTMX `back()->withErrors`).
+- `HelplineMessage.php` klasa biznesowa — `polish()` (116 111 + 800 70 2222 + 112) i `fallback()`. Wywołanie przez `app(HelplineMessage::class)->polish()`.
+- `Models/SafetyEventModel.php` — audit trail (user_id, category, created_at, indexes).
+
+**Pipeline integration**:
+- `MessageController::store` — pre-`ReserveMessageQuota` self-harm rate limit guard, input moderation check (self-harm shortcut → helpline content w character msg, no streaming; flagged inny → ContentBlockedException).
+- `MessageStreamController::__invoke` — post-stream output moderation (self-harm → SSE replace + log SafetyEvent + RateLimiter::hit; inne flagged → SSE replace fallback).
+- Frontend `chat/show.blade.php` — handler obsługuje `payload.replace` (nadpisuje content) zamiast `payload.delta` (append).
+
+**Reporting (`app/Reporting/`)**:
+- `Models/ReportModel.php` polymorphic z `pending()`/`overdue()` scopes + PHPStan generics docblocks.
+- `Enums/{ReportReason,ReportStatus}.php` z `HasLabel`/`HasColor`.
+- `Requests/ReportRequest.php` — Rule::in(['message','character']) whitelist + Rule::enum(ReportReason).
+- `Controllers/ReportController.php` — REST `store`, `EnsureGhostUser` inline (anonimowy reporter dostaje ghost session), rate limit `report:{user_id}` 5/min, existence check via `match` na MessageModel/CharacterModel.
+- Route `POST /reports` (poza auth+verified, `EnsureGhostUser` zarządza).
+- `<x-report-button type=... :id=...>` komponent (DaisyUI dialog modal + HTMX hx-post).
+- `chat/_message.blade.php` — `<x-report-button>` w `chat-footer` pod każdą AI msg (gdy nie streaming + content !== '').
+- `views/htmx/{content-blocked,report-thanks}.blade.php`.
+
+**Filament (`app/Filament/Resources/Reports/` + `Widgets/PendingReportsOverview.php`)**:
+- `ReportResource` — read-only (`canCreate: false`), navigation badge z pending count + danger color gdy overdue.
+- `ReportsTable` — kolumna **„Czeka"** z stanem dynamicznym (godziny, color='danger' gdy >24h pending), filtry status/reason/reportable_type/overdue, akcje row Resolve/Dismiss z confirmation.
+- `PendingReportsOverview` widget StatsOverview (3 stat-y: Pending / Overdue >24h danger / Resolved today) — zarejestrowany w `AdminPanelProvider`.
+
+**Migracje**:
+- `2026_04_28_120000_create_safety_events_table.php` — id, user_id FK cascade, category, created_at, indexy `(user_id, created_at)` + `category`.
+- `2026_04_28_120100_create_reports_table.php` — id, reporter_id FK NOT NULL, reportable_type/id (string), reason, description, status, resolved_by FK nullable, resolved_at, indexy `(reportable_type, reportable_id)` + `status` + `(status, created_at)`.
+
+**Morph map** (`AppServiceProvider::boot`): dodano `safety_event` + `report`.
+
+**Testy** (15 nowych, wszystkie zielone):
+- `tests/Feature/Moderation/InputModerationTest.php` (4 testy): blocks input flagged HTMX 422, detects self-harm input + helpline + SafetyEvent, blocks after rate limit threshold, NoOp passes through.
+- `tests/Feature/Moderation/OutputModerationTest.php` (3 testy): replaces flagged AI output with fallback, overrides self-harm output with helpline + SafetyEvent, keeps original when passes.
+- `tests/Feature/Moderation/NoOpProviderTest.php` (2 testy): NoOp always flagged=false, default test env binds NoOp.
+- `tests/Feature/Reporting/ReportTest.php` (6 testów): stores report message/character, rejects unknown type, 404 for missing reportable, ghost reporter created, rate limit 5/min.
+- `tests/Support/FakeModerationProvider.php` — test double bind przez `app()->bind()` (NIE `$this->app->bind` — protected w Pest closure).
+
+### QA — wszystko zielone
+
+- **182/182 tests passed** (496 assertions, 16.6s) — wszystkie poprzednie + 15 z Faza 4.
+- **PHPStan**: 0 errors (po dodaniu `@return MorphTo<Model, $this>` / `@param Builder<ReportModel>` docblocków).
+- **Pint**: 213 plików clean (3 auto-fixes: single_quote, unary_operator_space, fully_qualified_strict_types).
+- **Octane reload**: OK.
+
+### Definition of Done — Faza 4
+
+- [x] Wiadomość zawierająca explicit content (test: "show me NSFW") jest blokowana przed wysłaniem do AI.
+- [x] AI próbujący wygenerować NSFW jest **zastępowany fallbackiem** (zamiast regenerate 3x — uproszczone, decyzja w sekcji „Decyzje strategiczne").
+- [x] Self-harm → AI nadpisuje content helpline message, log SafetyEvent, rate limit 3/5min.
+- [x] User klika "Zgłoś" pod wiadomością → modal → submit → admin widzi w Filamencie.
+- [x] Admin może resolve/dismiss report (action z confirmation, ustawia resolved_by + resolved_at).
+- [x] PHPStan zielony, testy zielone (NoOp w `.env.testing`, FakeModerationProvider dla bind w testach).
+- [x] CLAUDE.md zaktualizowany — sekcje `### Moderation (moduł Moderation/)` i `### Reporting (moduł Reporting/)` w „Architektura — szczegóły techniczne", plus wpisy w „Pliki pod nadzorem".
+
+### Odchylenia od literalnego planu (zatwierdzone)
+
+- **Output regenerate 3x → SSE replace fallback (1x).** Prostsze UX (nie znika tekst, tylko nadpisuje), brak counter-state w cache, brak dodatkowych SSE roundtripów.
+- **Self-harm protocol pokrywa input + output**, nie tylko output (plan-must literalnie). Input self-harm = od razu helpline w character msg bez streamu (nie throw ContentBlockedException — to nie blokuje, to redirect do pomocy).
+- **Reporter zawsze wymagany** (FK NOT NULL), bo `EnsureGhostUser` daje każdemu user_id. Plan-must mówił „nullable (guest też zgłasza)" — nasz model jest ekwiwalentny ale prostszy (jednolity rate limit per user, bez per-IP).
+- **Filament „Delete reported content" action pominięta** (plan-must opcjonalnie). Admin może zrobić to przez CharacterResource/MessageResource manualnie. Można dodać osobno gdy będzie potrzebne.
+
+---
+
+## Faza 4 — Moderation + Reporting (oryginalny plan)
 
 **Cel:** NSFW filter input/output (PRD M7) + system zgłoszeń (PRD M13). Bez tego nie wypuszczamy na 13+.
 
@@ -475,7 +559,101 @@ Route::middleware('auth')->group(function (): void {
 
 ---
 
-## Faza 5 — Sekcja Randki
+## ✅ Faza 5 — Sekcja Randki — DONE (2026-04-28)
+
+**Cel:** Osobna sekcja `/randki` (PRD §4) — postacie randkowe z osobnym profilem, onboardingiem, tonem rozmowy. Pełny SFW.
+
+### Decyzje strategiczne (Faza 5, auto w trybie autonomicznym)
+
+| Pytanie | Decyzja |
+|---|---|
+| Wiek profili randkowych | **18+** (CHECK constraint `dating_profiles_age_check` na `age >= 18 AND age <= 99`). Walidacja Filament + DB jako last line of defense. Postać dorosła chroni przed problematycznym flirtem z minorem-AI. |
+| Onboarding: modal czy strona | **Dedykowana strona `/randki/onboarding`** (nie modal). Łatwiej testowalne + clean URL. Spec PRD §4.2 mówił "modal" wizualnie, ale flow jest pełnostronicowy. |
+| Brak opublikowanego `dating-terms` | **Failover otwarty** — `HasAcceptedDatingTerms::check()` zwraca true gdy doc nie istnieje. Sekcja działa zanim legal team wpisze treść; po publikacji 1. wersji wszystko dynamic-up. |
+| Prompt template injection point | **`MessageStreamer::stream`** — append `app(PromptTemplates::class)->flirt()` do `instructions` przed `new AnonymousAgent`. Klasa biznesowa `App\Dating\PromptTemplates` z `flirt(): string` (named, NIE `__invoke`). |
+| NSFW w dating chat | **Reuse Fazy 4 moderation pipeline** + prompt template instruuje subtle deflection ("Hej, wolny tor 😄"). Moderation pierwszy (input/output check), AI deflektuje subtle attempts które nie przeszły progu. |
+| Guest na dating chat | **`ChatController::store` inline guard** — kind=Dating + (anon\|ghost) → redirect login. Tylko dla dating; regular zostaje ghost-friendly. Guard inline, bez middleware (musi *najpierw* znaleźć character w DB). |
+| Dating profile PK | **`character_id` ULID jako PK** (1:1 cascade FK). Wymaga `$primaryKey/$incrementing/$keyType` na modelu. Brak osobnego auto-increment id — natural key. |
+
+### Co zaimplementowano
+
+**Models + schema (`app/Dating/`)**:
+- `Models/DatingProfileModel.php` — `character_id` ULID PK, `age` smallint, `city`, `bio`, `interests` jsonb, `accent_color`. PHPStan generics: `BelongsTo<CharacterModel, $this>` na `character()`.
+- `database/migrations/2026_04_28_130000_create_dating_profiles_table.php` — wraz z DB CHECK constraint `dating_profiles_age_check (age >= 18 AND age <= 99)`.
+- `database/factories/DatingProfileFactory.php` — generuje character (kind=Dating, is_official) + profile.
+
+**Klasy biznesowe (root modułu, named methods, no `__invoke`)**:
+- `app/Dating/PromptTemplates.php` — `flirt(): string`. Template po polsku z zakazem NSFW, instrukcją deflection, zakazem udawania prawdziwego człowieka.
+- `app/Dating/HasAcceptedDatingTerms.php` — `check(UserModel $user): bool`. Reused w 3 miejscach (DatingController, ChatController guard).
+
+**Controllers**:
+- `app/Dating/Controllers/DatingController.php` — `index` (publiczny, redirectuje auth-without-consent na onboarding), `show` (publiczny, 404 dla regular character).
+- `app/Dating/Controllers/DatingOnboardingController.php` — `show` (idempotent — redirect home gdy consent już jest), `store` używa `RecordConsents`.
+- `app/Dating/Requests/DatingOnboardingRequest.php` — `accepted_dating_terms: accepted` + authorize() (auth + non-guest).
+
+**Pipeline integration**:
+- `MessageStreamer::stream` — gdy `character->kind === Dating` doklejam `flirt()` do `instructions`. Moderation z Fazy 4 nadal działa.
+- `ChatController::store` — inline guard kind=Dating: anon/ghost → redirect login; auth bez consent → redirect dating.onboarding.
+- `CharacterModel.datingProfile()` — `HasOne<DatingProfileModel, $this>`.
+
+**Filament `DatingProfileResource`**:
+- Pełen CRUD ale tworzy 2 modele atomowo: `CreateDatingProfile::handleRecordCreation` w `DB::transaction` tworzy `CharacterModel` (kind=Dating, is_official=true, user_id=admin) + `DatingProfileModel`.
+- `EditDatingProfile::mutateFormDataBeforeFill` ładuje pola Charactera; `handleRecordUpdate` synchronizuje oba w transakcji.
+- Form z `Section`-ami (Postać + Profil randkowy), `TagsInput` na `interests`, `ColorPicker` na `accent_color`, walidacja `age` 18-99 w polu numeric.
+
+**Routes** (`routes/web.php`):
+- `GET /randki` (publiczny index).
+- `GET|POST /randki/onboarding` (auth-only group).
+- `GET /randki/{character}` (publiczny profil).
+- Kolejność: index → middleware('auth') onboarding → show — żeby `/randki/onboarding` nie matchował `{character}` ULID-bindingu.
+
+**Views**:
+- `resources/views/dating/index.blade.php` — grid kart z avatarem, imieniem+wiek, miastem, bio (line-clamp), accent_color CSS var.
+- `resources/views/dating/show.blade.php` — pełen profil: avatar duży z accent shadow, imię+wiek, miasto, interests badges, bio, dyskla­imer "to zabawa, nie prawdziwa osoba", CTA "Napisz".
+- `resources/views/dating/onboarding.blade.php` — dedykowana strona z 4 punktami (AI/rozrywka/no-NSFW/regulamin) + checkbox + submit.
+
+**Tests** (`tests/Feature/Dating/`, 17 testów):
+- `DatingIndexTest.php` (6) — listing dla guest, skip profile-less, redirect auth-no-consent, show z consent, 404 dla regular, profil detail.
+- `DatingOnboardingTest.php` (5) — auth required, show form, store records consent, validation, idempotent.
+- `DatingChatGuardTest.php` (3) — anon→login, no-consent→onboarding, with-consent→chat.
+- `PromptTemplateTest.php` (1) — flirt template zawiera Randki/no-NSFW/postacią AI/po polsku.
+
+**CLAUDE.md** — dopisana sekcja `### Dating (moduł Dating/)` + Pliki pod nadzorem (DatingProfile + Filament Resources + migracja + views + integracje w MessageStreamer/ChatController).
+
+### Odchylenia od planu
+
+- **Onboarding to dedykowana strona, nie modal** — plan-must mówił "modal", zaimplementowano jako stronę. Łatwiej testowalne, clean URL, łatwiejsze do udostępnienia.
+- **Failover otwarty dla braku dating-terms** — sekcja działa zanim legal team wpisze treść (zwraca consent=true). Po publikacji 1. wersji wszystko dynamic-up.
+- **`HasAcceptedDatingTerms` jako osobna klasa biznesowa** — nie było w spec, ale DRY: ta sama logika w 3 miejscach (DatingController index/show + ChatController guard).
+- **`dating.onboarding.store` route name dropped** — POST `/randki/onboarding` używa tej samej nazwy `dating.onboarding` co GET (REST-only). Spec wskazywał `dating.onboarding.store` ale był to non-REST nazewnik — uproszczone.
+
+### QA results
+
+```
+docker exec -u dev postac-ai-app-1 php artisan migrate
+docker exec -u dev postac-ai-app-1 php artisan test
+docker exec -u dev postac-ai-app-1 vendor/bin/phpstan analyse --memory-limit=512M
+docker exec -u dev postac-ai-app-1 vendor/bin/pint --test
+docker exec -u dev postac-ai-app-1 php artisan octane:reload
+```
+
+- Testy: **197/197 passed** (15 nowych z Fazy 4 + 17 nowych z Fazy 5).
+- PHPStan: **0 errors** (214 plików).
+- Pint: **231 files clean** (1 auto-fix: `RuntimeException` import w CreateDatingProfile).
+- Octane: reload OK.
+
+### Definition of Done — Faza 5
+
+- [x] Auth user wchodzi na `/randki` → onboarding (jeśli brak consent) → akceptuje → grid profili.
+- [x] Klik profil → strona profilu → "Napisz" → chat z dating prompt template (`flirt()` doklejony do instructions).
+- [x] Próba NSFW w dating chat → blocked (Faza 4 moderation) + AI prompt-template-instructed do flirciarskiej deflekcji.
+- [x] Guest na `/randki` widzi profile, klik "Napisz" → login redirect.
+- [x] Admin w Filamencie tworzy nowy dating profile (character + dating_profile w transaction).
+- [x] Brak dating-terms consent → onboarding strona blokuje dostęp.
+
+---
+
+## Faza 5 — Sekcja Randki (oryginalna spec, archiwalna)
 
 **Cel:** Osobna sekcja `/randki` (PRD §4) — postacie randkowe z osobnym profilem, onboardingiem, tonem rozmowy. Pełny SFW.
 
@@ -556,7 +734,67 @@ Route::get('/randki/{character}', [DatingController::class, 'show'])->name('dati
 
 ---
 
-## Faza 6 — Catalog infrastructure
+## ✅ Faza 6 — Catalog infrastructure — DONE (2026-04-28)
+
+**Status:** Wszystkie pkt DoD zaakceptowane. Faza zamknięta.
+
+### Decyzje strategiczne (zatwierdzone przez usera)
+
+| Temat | Decyzja | Notatka |
+|---|---|---|
+| URL strategy | **Tylko slug primary** (`/postacie/{slug}`), `/characters/{ULID}` znika (404) | Czysty URL, jeden master endpoint dla profilu. Stary URL nie istnieje. |
+| Slug regen | **Pole edytowalne w Filamencie** + auto-gen raz przy create | Generowany jednorazowo; rename `name` nie regeneruje. Admin może override w form. User non-admin nie ma dostępu do pola. |
+| Sekcja "Polskie legendy" | **Pominięta** w MVP | Out of scope infrastruktury — sort `is_official desc` + tag-by-category-page wystarczy. |
+| `?official=true` filter | **Query param + widoczny przycisk** | Checkbox "Tylko oficjalne" na `/characters` index, integracja z HTMX. |
+
+### Co zaimplementowano
+
+- **Migracja `add_slug_to_characters_table`** — `slug VARCHAR(160) UNIQUE NULLABLE` + backfill `kind=regular` (Str::slug + numeryczny dedup `-2`/`-3`).
+- **`CharacterModel::booted` z `static::saving`** — generuje slug gdy `kind === Regular AND slug NULL/empty`. Dedup query z `withTrashed()`. **Nie regeneruje** przy update name.
+- **`protected $attributes`** — defaults `kind=regular`, `is_official=false`, `popularity_24h=0` (bez tego saving event nie widziałby kindu, bo DB default odpala dopiero przy INSERT).
+- **`@property string|null $slug`** + slug w fillable.
+- **Route**: `Route::get('/postacie/{character:slug}', ...)->name('character.show')`. Stary `/characters/{character}` usunięty. `/characters` (lista) i `/characters/search` (HTMX) zachowane.
+- **Filament `CharacterForm`** — `TextInput::make('slug')` z regex `^[a-z0-9-]+$`, `unique(ignoreRecord: true)`, helperText o ryzyku łamania linków.
+- **Filament `CharactersTable`**:
+  - `IconColumn::make('is_official')->boolean()->sortable()`
+  - `TernaryFilter::make('is_official')` (Wszystkie/Oficjalne/Nieoficjalne)
+  - `BulkAction::make('promote')` + `BulkAction::make('unpromote')` z confirmation
+- **`CharacterController::index`** — `?official=1` filter w `buildBrowseQuery` przez `$request->boolean('official')`.
+- **`resources/views/characters/index.blade.php`** — checkbox "Tylko oficjalne" w form filtrów + HTMX trigger `change from:input[name=official]`.
+- **Update tests** — `CharacterBrowseTest` zaktualizowany (wszystkie show-testy używają `/postacie/{slug}` zamiast `/characters/{id}`).
+- **Nowe testy** (12):
+  - `tests/Feature/Character/SlugTest.php` (7) — auto-gen, no-regen, admin override, dedup, dating null, route resolves, old URL 404.
+  - `tests/Feature/Character/OfficialFilterTest.php` (3) — filter on, filter off, UI checkbox renders.
+  - `tests/Feature/Filament/CharacterPromoteBulkTest.php` (2) — promote, unpromote bulk.
+
+### Odchylenia od oryginalnej spec
+
+1. **Old ULID URL nie redirectuje** — usera wybrał "Tylko slug, ULID znika" zamiast 301 alias. Czystsze, ale zewnętrzne linki na `/characters/{ULID}` zwrócą 404 (akceptowalne, bo prod nie ma jeszcze ruchu).
+2. **Slug edytowalny w Filamencie** — oryginał zakładał auto-only, user wybrał admin override. Plus regex validation i unique constraint w form.
+3. **"Polskie legendy" sekcja** — pominięta jako out-of-MVP (wymaga ręcznego oznaczania kategorią).
+4. **`protected $attributes`** dodane na `CharacterModel` — wymagane żeby `static::saving` widział `kind` przy CREATE (DB default aktywuje się dopiero przy INSERT, nie w event).
+5. **Test bulk action API** — Filament 5 wymaga `callTableBulkAction(string, array)` zamiast `callAction(string, records: array)`.
+
+### QA wyniki
+
+- `php artisan test` → **209/209 passed** (562 assertions)
+- `vendor/bin/phpstan analyse` → 0 errors
+- `vendor/bin/pint --test` → 235 files clean
+- `php artisan octane:reload` → workers reloaded
+
+### Definition of Done — wszystkie spełnione
+
+- [x] Admin zaznacza `is_official` na postaci → karta postaci ma badge "Oficjalna" + author ukryty.
+- [x] Home page wyróżnia oficjalne (sort priority `is_official desc`).
+- [x] `/postacie/{slug}` (np. `jozef-pilsudski`) działa jako jedyny URL profilu (ULID URL znikł).
+- [x] Slug auto-generowany przy create, nie regeneruje przy rename, dedupowany.
+- [x] Admin może override slug w Filamencie.
+- [x] `?official=true` filter + UI checkbox na `/characters`.
+- [x] Bulk action "Promote/Unpromote" w Filament działa.
+
+---
+
+## Faza 6 — Catalog infrastructure (oryginalna spec, archiwalna)
 
 **Cel:** UI/UX traktuje `is_official` postacie inaczej (badges, sortowanie, ekspozycja). Po tej fazie content team może zacząć wpisywać 30+ postaci ręcznie w Filamencie i będą wyglądać jak należy.
 

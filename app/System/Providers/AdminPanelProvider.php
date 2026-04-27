@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\System\Providers;
 
 use App\Filament\Widgets\MessagesPerDayChart;
+use App\Filament\Widgets\PendingReportsOverview;
 use App\Filament\Widgets\StatsOverviewWidget;
 use App\Filament\Widgets\TokenUsageChart;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
@@ -44,6 +45,7 @@ class AdminPanelProvider extends PanelProvider
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
                 StatsOverviewWidget::class,
+                PendingReportsOverview::class,
                 MessagesPerDayChart::class,
                 TokenUsageChart::class,
             ])

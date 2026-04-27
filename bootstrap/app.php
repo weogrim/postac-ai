@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Auth\Middleware\RedirectIfRegistered;
 use App\Chat\Exceptions\OutOfMessagesException;
+use App\Moderation\Exceptions\ContentBlockedException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -43,6 +44,16 @@ return Application::configure(basePath: dirname(__DIR__))
                     'errors' => Arr::flatten($e->errors()),
                 ], 422)
                 ->header('HX-Reswap', 'none');
+        });
+
+        $exceptions->render(function (ContentBlockedException $e, Request $request) {
+            if ($request->header('HX-Request') === 'true') {
+                return response()
+                    ->view('htmx.content-blocked', ['message' => $e->getMessage()], 422)
+                    ->header('HX-Reswap', 'none');
+            }
+
+            return back()->withErrors(['content' => $e->getMessage()])->withInput();
         });
 
         $exceptions->render(function (OutOfMessagesException $e, Request $request) {
