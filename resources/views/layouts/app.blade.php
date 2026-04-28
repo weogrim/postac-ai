@@ -27,7 +27,7 @@
 >
     <x-navbar />
 
-    <main class="flex-1">
+    <main class="flex flex-1 flex-col min-h-0">
         {{ $slot ?? '' }}
         @yield('content')
     </main>

@@ -22,3 +22,8 @@ Schedule::command('users:gc-guests')
     ->daily()
     ->name('gc-guest-users')
     ->withoutOverlapping();
+
+Schedule::command('chats:gc-empty')
+    ->weekly()
+    ->name('gc-empty-chats')
+    ->withoutOverlapping();

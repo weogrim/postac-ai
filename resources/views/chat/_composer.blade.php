@@ -1,6 +1,6 @@
 @props(['chat', 'locked' => false])
 
-<div id="composer" class="sticky bottom-0 border-t border-base-300 bg-base-200 py-4">
+<div id="composer" class="border-t border-base-300 bg-base-200 py-4">
     @if ($locked)
         <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-base-100 px-4 py-3 shadow-sm">
             <div class="text-sm">

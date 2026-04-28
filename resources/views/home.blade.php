@@ -65,30 +65,30 @@
             </div>
         @endif
 
-        @auth
+        @registered
             <div class="mt-12 rounded-2xl border border-base-300 bg-base-100 p-8 text-center">
                 <h3 class="text-lg font-semibold">Masz pomysł na własną postać?</h3>
                 <p class="mt-2 text-sm text-base-content/70">Stwórz ją i podziel się ze społecznością.</p>
                 <a href="{{ route('character.create') }}" class="btn btn-primary mt-4">➕ Stwórz swoją postać</a>
             </div>
-        @endauth
+        @endregistered
 
         @if ($popular->isEmpty() && $latest->isEmpty())
             <div class="rounded-2xl border border-base-300 bg-base-100 p-10 text-center">
                 <p class="text-lg font-medium">Brak postaci</p>
                 <p class="mt-2 text-sm text-base-content/70">
-                    @auth
+                    @registered
                         Stwórz swoją pierwszą postać i zacznij rozmawiać.
                     @else
                         Zaloguj się, żeby stworzyć pierwszą postać.
-                    @endauth
+                    @endregistered
                 </p>
                 <div class="mt-6">
-                    @auth
+                    @registered
                         <a href="{{ route('character.create') }}" class="btn btn-primary">Dodaj postać</a>
                     @else
                         <a href="{{ route('login') }}" class="btn btn-primary">Zaloguj</a>
-                    @endauth
+                    @endregistered
                 </div>
             </div>
         @endif

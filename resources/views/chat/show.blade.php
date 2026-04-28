@@ -1,18 +1,44 @@
 @extends('layouts.app')
 
+@section('footer')<span class="hidden"></span>@endsection
+
 @section('content')
-    <div class="drawer lg:drawer-open">
-        <input id="chat-drawer" type="checkbox" class="drawer-toggle">
+    <div class="flex h-[calc(100dvh-4rem)] w-full">
+        <aside class="hidden w-72 shrink-0 flex-col overflow-y-auto border-r border-base-300 bg-base-100 p-3 lg:flex">
+            <div class="mb-3 flex items-center justify-between px-1">
+                <h2 class="text-sm font-semibold uppercase tracking-wide text-base-content/60">Twoje czaty</h2>
+                <a href="{{ route('home') }}" class="btn btn-ghost btn-circle btn-sm" aria-label="Nowy czat">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                </a>
+            </div>
 
-        <div class="drawer-content flex flex-col">
-            <div class="mx-auto flex w-full max-w-4xl flex-1 flex-col px-4 py-4 sm:px-6" data-chat data-chat-id="{{ $chat->id }}">
+            <ul class="menu menu-sm w-full gap-1">
+                @foreach ($chats as $chatItem)
+                    <li>
+                        <a
+                            href="{{ route('chat.show', $chatItem) }}"
+                            class="flex items-center gap-3 {{ $chatItem->id === $chat->id ? 'menu-active' : '' }}"
+                        >
+                            <div class="avatar">
+                                <div class="h-10 w-10 rounded-full">
+                                    <img src="{{ $chatItem->character->avatarUrl('square') }}" alt="">
+                                </div>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <p class="truncate text-sm font-medium">{{ $chatItem->character->name }}</p>
+                                <p class="truncate text-xs text-base-content/60">@ {{ $chatItem->character->author?->name ?? 'nieznany' }}</p>
+                            </div>
+                        </a>
+                    </li>
+                @endforeach
+            </ul>
+        </aside>
+
+        <div class="flex flex-1 min-w-0 flex-col">
+            <div class="mx-auto flex w-full max-w-4xl flex-1 flex-col px-4 pt-4 sm:px-6 min-h-0" data-chat data-chat-id="{{ $chat->id }}">
                 <header class="flex items-center gap-3 border-b border-base-300 pb-4">
-                    <label for="chat-drawer" class="btn btn-ghost btn-circle btn-sm lg:hidden" aria-label="Pokaż listę czatów">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-                        </svg>
-                    </label>
-
                     <div class="avatar">
                         <div class="h-10 w-10 rounded-full">
                             <img src="{{ $chat->character->avatarUrl('square') }}" alt="">
@@ -25,11 +51,11 @@
                     </div>
                 </header>
 
-                <div id="messages" class="flex-1 space-y-4 overflow-y-auto py-6">
+                <div id="messages" class="flex-1 min-h-0 space-y-4 overflow-y-auto py-6">
                     @forelse ($chat->messages as $message)
                         @include('chat._message', ['message' => $message])
                     @empty
-                        <div class="flex h-full items-center justify-center py-20 text-center text-sm text-base-content/60">
+                        <div data-empty class="py-12 text-center text-sm text-base-content/60">
                             Napisz pierwszą wiadomość, żeby zacząć rozmowę.
                         </div>
                     @endforelse
@@ -38,45 +64,9 @@
                 @include('chat._composer', ['chat' => $chat, 'locked' => $gateLocked ?? false])
             </div>
         </div>
-
-        @include('chat._gate-modal', ['open' => $gateLocked ?? false])
-
-        <div class="drawer-side z-30">
-            <label for="chat-drawer" class="drawer-overlay" aria-label="Zamknij"></label>
-
-            <aside class="flex h-full w-72 flex-col bg-base-100 p-3">
-                <div class="mb-3 flex items-center justify-between px-1">
-                    <h2 class="text-sm font-semibold uppercase tracking-wide text-base-content/60">Twoje czaty</h2>
-                    <a href="{{ route('home') }}" class="btn btn-ghost btn-circle btn-sm" aria-label="Nowy czat">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-                        </svg>
-                    </a>
-                </div>
-
-                <ul class="menu menu-sm w-full gap-1">
-                    @foreach ($chats as $chatItem)
-                        <li>
-                            <a
-                                href="{{ route('chat.show', $chatItem) }}"
-                                class="flex items-center gap-3 {{ $chatItem->id === $chat->id ? 'menu-active' : '' }}"
-                            >
-                                <div class="avatar">
-                                    <div class="h-10 w-10 rounded-full">
-                                        <img src="{{ $chatItem->character->avatarUrl('square') }}" alt="">
-                                    </div>
-                                </div>
-                                <div class="min-w-0 flex-1">
-                                    <p class="truncate text-sm font-medium">{{ $chatItem->character->name }}</p>
-                                    <p class="truncate text-xs text-base-content/60">@ {{ $chatItem->character->author?->name ?? 'nieznany' }}</p>
-                                </div>
-                            </a>
-                        </li>
-                    @endforeach
-                </ul>
-            </aside>
-        </div>
     </div>
+
+    @include('chat._gate-modal', ['open' => $gateLocked ?? false])
 
     <script>
         (() => {
@@ -99,6 +89,7 @@
                 const status = e.detail?.ctx?.response?.status ?? 0;
                 if (status < 200 || status >= 300) return;
                 input.value = '';
+                messages.querySelector('[data-empty]')?.remove();
                 scrollToBottom();
 
                 const bubble = messages.querySelector('[data-streaming="true"]');

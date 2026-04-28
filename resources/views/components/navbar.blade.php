@@ -12,11 +12,11 @@
             </button>
             <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 w-52 rounded-box bg-base-100 p-2 shadow-lg">
                 <li><a href="{{ route('home') }}">Strona główna</a></li>
-                @auth
+                @registered
                     <li><a href="{{ route('buy.index') }}">Pakiety</a></li>
                     <li><a href="{{ route('profile.show') }}">Profil</a></li>
                     <li><a href="{{ route('profile.limits') }}">Moje limity</a></li>
-                @endauth
+                @endregistered
             </ul>
         </div>
 
@@ -28,19 +28,14 @@
     <div class="navbar-center hidden sm:flex">
         <ul class="menu menu-horizontal gap-1 px-1">
             <li><a href="{{ route('home') }}" class="{{ request()->routeIs('home') ? 'active' : '' }}">Postacie</a></li>
-            @auth
+            @registered
                 <li><a href="{{ route('buy.index') }}" class="{{ request()->routeIs('buy.*') ? 'active' : '' }}">Pakiety</a></li>
-            @endauth
+            @endregistered
         </ul>
     </div>
 
     <div class="navbar-end gap-2">
-        @guest
-            <a href="{{ route('login') }}" class="btn btn-ghost btn-sm">Zaloguj</a>
-            <a href="{{ route('register') }}" class="btn btn-primary btn-sm">Zarejestruj</a>
-        @endguest
-
-        @auth
+        @registered
             <div class="dropdown dropdown-end">
                 <button tabindex="0" class="btn btn-circle btn-ghost avatar avatar-placeholder" aria-label="Menu profilu">
                     <div class="w-10 rounded-full bg-primary text-primary-content">
@@ -65,6 +60,9 @@
                     </li>
                 </ul>
             </div>
-        @endauth
+        @else
+            <a href="{{ route('login') }}" class="btn btn-ghost btn-sm">Zaloguj</a>
+            <a href="{{ route('register') }}" class="btn btn-primary btn-sm">Zarejestruj</a>
+        @endregistered
     </div>
 </div>

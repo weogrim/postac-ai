@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use App\User\Models\UserModel;
 use App\Auth\Notifications\ResetPasswordNotification;
+use App\User\Models\UserModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;

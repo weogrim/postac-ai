@@ -15,6 +15,7 @@ use App\Dating\HasAcceptedDatingTerms;
 use App\User\EnsureGhostUser;
 use App\User\Models\UserModel;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -30,7 +31,10 @@ class ChatController
         }
 
         /** @var UserModel $user */
-        $latest = $user->chats()->latest()->first();
+        $latest = $user->chats()
+            ->whereHas('messages', fn (Builder $q) => $q->where('sender_role', SenderRole::User->value))
+            ->latest()
+            ->first();
 
         return $latest !== null
             ? redirect()->route('chat.show', $latest)
@@ -87,6 +91,7 @@ class ChatController
         $chat->load(['character.media', 'messages']);
 
         $chats = $user->chats()
+            ->whereHas('messages', fn (Builder $q) => $q->where('sender_role', SenderRole::User->value))
             ->with('character.media')
             ->latest()
             ->get();

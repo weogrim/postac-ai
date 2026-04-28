@@ -19,6 +19,7 @@ use App\User\Models\UserModel;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Intervention\Image\Image;
@@ -71,6 +72,12 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Gate::before(fn (UserModel $user): ?bool => $user->hasRole('super_admin') ? true : null);
+
+        Blade::if('registered', static function (): bool {
+            $user = auth()->user();
+
+            return $user instanceof UserModel && ! $user->isGuest();
+        });
 
         ImageManipulator::defineVariant(
             'square',
