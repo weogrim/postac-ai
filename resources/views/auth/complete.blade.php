@@ -8,12 +8,10 @@
         <form method="POST" action="{{ route('auth.complete') }}" class="flex flex-col gap-4">
             @csrf
 
-            <x-form-input
+            <x-birthdate-picker
                 name="birthdate"
                 label="Data urodzenia"
-                type="date"
                 required
-                autofocus
                 hint="Musisz mieć ukończone 13 lat."
             />
 

@@ -72,7 +72,7 @@ class ReportsTable
 
                         return $record->created_at->lt(now()->subHours(24)) ? 'danger' : null;
                     })
-                    ->sortable(query: fn (Builder $q, string $dir) => $q->orderBy('created_at', $dir)),
+                    ->sortable(query: fn (Builder $query, string $direction) => $query->orderBy('created_at', $direction)),
 
                 TextColumn::make('resolved_at')
                     ->label('Rozwiązano')

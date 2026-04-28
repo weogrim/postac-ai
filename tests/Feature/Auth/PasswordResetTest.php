@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use App\User\Models\UserModel;
-use Illuminate\Auth\Notifications\ResetPassword;
+use App\Auth\Notifications\ResetPasswordNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
@@ -19,7 +19,7 @@ it('sends a password reset link', function () {
     $response = $this->post('/forgot-password', ['email' => 'jane@example.com']);
 
     $response->assertSessionHasNoErrors();
-    Notification::assertSentTo($user, ResetPassword::class);
+    Notification::assertSentTo($user, ResetPasswordNotification::class);
 });
 
 it('resets the password with a valid token', function () {
@@ -34,7 +34,7 @@ it('resets the password with a valid token', function () {
 
     /** @var string|null $token */
     $token = null;
-    Notification::assertSentTo($user, ResetPassword::class, function (ResetPassword $notification) use (&$token) {
+    Notification::assertSentTo($user, ResetPasswordNotification::class, function (ResetPasswordNotification $notification) use (&$token) {
         $token = $notification->token;
 
         return true;

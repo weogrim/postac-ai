@@ -5,7 +5,7 @@
         <div class="mb-3 text-4xl">👋</div>
         <h3 class="text-xl font-semibold">Limit gościa wyczerpany</h3>
         <p class="mt-2 text-sm text-base-content/70">
-            Założ konto, żeby kontynuować rozmowę. Wszystkie Twoje czaty zostaną zachowane.
+            Załóż konto, żeby kontynuować rozmowę. Wszystkie Twoje czaty zostaną zachowane.
         </p>
         <div class="mt-6 flex flex-col gap-2">
             <a href="{{ route('register') }}" class="btn btn-primary" hx-boost="false">Zarejestruj się</a>

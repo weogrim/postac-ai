@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\User\Models;
 
+use App\Auth\Notifications\ResetPasswordNotification;
+use App\Auth\Notifications\VerifyEmailNotification;
 use App\Character\Models\CharacterModel;
 use App\Chat\Models\ChatModel;
 use App\Chat\Models\MessageLimitModel;
@@ -90,6 +92,19 @@ class UserModel extends Authenticatable implements FilamentUser, MustVerifyEmail
     public function isGuest(): bool
     {
         return $this->email === null;
+    }
+
+    public function sendEmailVerificationNotification(): void
+    {
+        $this->notify(new VerifyEmailNotification);
+    }
+
+    /**
+     * @param  string  $token
+     */
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new ResetPasswordNotification($token));
     }
 
     /**

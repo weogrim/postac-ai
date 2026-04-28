@@ -42,10 +42,9 @@
                 required
             />
 
-            <x-form-input
+            <x-birthdate-picker
                 name="birthdate"
                 label="Data urodzenia"
-                type="date"
                 required
                 hint="Musisz mieć ukończone 13 lat."
             />

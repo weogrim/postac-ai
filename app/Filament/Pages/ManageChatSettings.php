@@ -26,6 +26,8 @@ class ManageChatSettings extends Page
 
     protected static ?string $navigationLabel = 'Ustawienia czatu';
 
+    protected static ?string $title = 'Ustawienia czatu';
+
     protected static string|UnitEnum|null $navigationGroup = 'Konfiguracja';
 
     protected static ?int $navigationSort = 90;
