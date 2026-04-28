@@ -249,7 +249,7 @@
     }
 
     .card-glass {
-        background: oklch(0.142 0.018 274 / 0.6);
+        background: oklch(0.142 0.018 274 / 0.85);
         border: 1px solid var(--color-line);
         border-radius: 1.25rem;
         backdrop-filter: blur(12px);
@@ -259,7 +259,10 @@
             box-shadow var(--duration-base) var(--ease-spring),
             border-color var(--duration-base) var(--ease-spring);
     }
-    .card-glass:hover {
+    /* Hover-lift tylko dla linków/kart klikalnych. Kontener (.card-glass--static)
+       nie skacze przy mouseover (np. okno chatu). */
+    a.card-glass:hover,
+    button.card-glass:hover {
         transform: translateY(-4px);
         border-color: oklch(0.633 0.260 304 / 0.4);
         box-shadow: 0 20px 60px -20px oklch(0.633 0.260 304 / 0.3);

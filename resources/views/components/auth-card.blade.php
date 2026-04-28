@@ -6,7 +6,7 @@
 <section class="relative overflow-hidden py-12 sm:py-20">
     <div class="bg-blob"></div>
 
-    <div class="container-app relative z-10 mx-auto flex w-full max-w-md flex-col gap-6">
+    <div class="relative z-10 mx-auto flex w-full max-w-md flex-col gap-6 px-4">
         <div class="text-center">
             <h1 class="text-display-md">{{ $heading }}</h1>
             @if ($subheading)

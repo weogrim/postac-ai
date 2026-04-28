@@ -194,6 +194,14 @@ API mocno różni się od v2/v3 — **nie ufaj intuicji z LLMa** (trening głów
 
 **Drawer = grid bez `grid-template-rows`** — `h-full` na `.drawer-content` nie działa (auto rows). Dla full-height layoutu (chat) użyj zwykłego flex (`flex h-[calc(100dvh-4rem)]`) zamiast drawera.
 
+**Tailwind scanner widzi tylko literały w skanowanych plikach** — gdy klasa jest computed w PHP (np. property hook na modelu zwracający `'bg-gradient-to-br from-violet to-magenta'`), trzeba dodać `@source '../../app/Path.php'` w `app.css`, inaczej klasy nie zostaną wygenerowane. Patrz `CharacterModel::$avatar_gradient_class` + `@source` w `resources/css/app.css`.
+
+**`.card-glass:hover` jest scoped do `a.card-glass:hover, button.card-glass:hover`** — kontenery (`<div class="card-glass">`) nie unoszą się przy mouseover. Klikalne karty MUSZĄ być `<a>`/`<button>` żeby dostać hover-lift; statyczne panele (chat container, sekcje profilu, modal) zostają stabilne.
+
+**`.container-app` (max 1240px) wygrywa source-order nad Tailwindowym `max-w-md`** — nie używać razem na tym samym elemencie. Dla wąskich layoutów (auth-card, modale) skip `.container-app` i daj `mx-auto max-w-md px-4` ręcznie.
+
+**Marquee `translateX(-50%)` w `.marquee-track` wymaga track-width > 2× viewport** — minimum 4× duplikacja contentu (`array_merge` × 4) bo 2× często jest za wąsko na szerokich ekranach i widać puste miejsce po prawej.
+
 ### Postgres / migracje / persistence
 
 - **Polimorficzny ID jako string** (NIE bigint) — User=int, Character=ULID. Dla `mediable_tables` i `taggables` ręcznie edytujemy opublikowane migracje na `string/string`. `config('mediable.ignore_migrations') => true`.
@@ -255,6 +263,9 @@ Zasady przy tworzeniu/refactorze widoków:
 4. **Animacje**: domyślnie pure CSS (już zdefiniowane w `app.css`). Jeśli potrzeba reaktywności — Alpine `x-data` / `x-init` / `x-intersect.once`. **Nigdy** vanilla JS dla efektów wizualnych. HTMX zostaje dla nawigacji/form/redirect.
 5. **NIE pisz inline `<style>`** w plikach Blade. Wszystko w `app.css`. Jeśli czegoś brakuje — dopisz utility do `@layer components` w `app.css`, nie inline.
 6. Każda animacja respektuje `prefers-reduced-motion: reduce` (`app.css` ma global fallback wyłączający wszystkie animacje).
+7. **Avatar postaci** → `<x-character-avatar :character="$c" size="sm|md|lg|xl" :status="bool" />`. Gradient + initials z property hooks na modelu (`$character->initials`, `$character->avatar_gradient_class`). Nie renderuj avatara inline.
+8. **Rotujące/dynamiczne treści** w hero (Alpine `x-text` z setInterval rotujący name) muszą mieć `min-h-[Xem]` na kontenerze równe wysokości najdłuższej wartości — bez tego layout shift przy zmianie krótkiej nazwy na długą. Plus dla long-string content użyj `text-display-lg` (clamp 36–56px) zamiast `text-display-xl` (clamp 48–88px), inaczej długie polskie nazwy ("Maria Skłodowska-Curie") wrappują na 3+ linie.
+9. **CTA dla guest vs ghost vs registered**: użyj `@registered` (a NIE `@auth`) gdy chcesz pokazać "Zarejestruj się" guestom + ghostom. `@auth` jest true dla ghosta (logged-in z email NULL) i pokazałby content tylko-dla-zarejestrowanych.
 
 ## Pliki pod nadzorem
 
@@ -275,4 +286,7 @@ Tylko te które wymagają uwagi przed edycją (nie pełna lista plików projektu
 - `database/migrations/*_create_tag_tables.php` — Spatie published, ZMODYFIKOWANE: `taggable_id` string + `name`/`slug` jsonb (zamiast json).
 - `database/migrations/*_enable_pg_trgm_and_index_characters.php` — `CREATE EXTENSION pg_trgm` + GIN trgm indexy na `characters.name`/`description`.
 - `tests/Pest.php` — globalne helpery (`loginAsAdmin()`).
+- `resources/css/app.css` — design tokens (`@theme`), DaisyUI theme `postac`, `@source` directives (w tym `app/Character/Models/CharacterModel.php` dla computed Tailwind classes), `@layer components` utilities (`.card-glass`, `.btn-glow`, `.bg-blob`, `.marquee`, `.eyebrow`, etc.). Każda zmiana → `npm run build && octane:reload`.
+- `resources/views/components/character-avatar.blade.php` — jedyny sposób renderowania avatara postaci (gradient + initials). Nie renderuj inline w Blade.
 - `docs/ARCHITEKTURA.md` + `docs/ARCHITEKTURA_RULES.md` — pełna referencja architektury. Zaglądamy tu, jeśli pojawia się pytanie „gdzie to położyć?" lub „jak to nazwać?".
+- `docs/design-system/DESIGN-DNA.md` + `docs/design-system/ANIMATIONS-MAP.md` — referencja design DNA od Łukasza (read-only, snapshot z paczki). Zaglądamy gdy szukamy wzorca dla nowego komponentu.

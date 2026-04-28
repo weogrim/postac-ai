@@ -5,18 +5,28 @@
     <section class="relative overflow-hidden py-16 lg:py-24">
         <div class="bg-blob"></div>
 
-        <div class="container-app relative z-10 grid gap-12 lg:grid-cols-2 lg:items-center">
+        {{-- Lewa kolumna szersza niż prawa: chat preview ma max-w-md (~448px), hero
+             zyskuje miejsce żeby długie imiona ("Maria Skłodowska-Curie") mieściły się
+             w 2 liniach bez layout shiftu. --}}
+        <div class="container-app relative z-10 grid gap-12 lg:grid-cols-[1.5fr_1fr] xl:grid-cols-[1.7fr_1fr] lg:items-center">
             <div>
                 <span class="eyebrow">Polska platforma AI · {{ $totalCharacters > 0 ? $totalCharacters : '30+' }} postaci po polsku</span>
 
                 <h1 class="text-display-xl mt-6">
-                    Porozmawiaj z<br>
-                    <span
-                        x-data="{ names: @js($rotatingNames ?: ['Marią Curie', 'Józefem Piłsudskim', 'Mikołajem Kopernikiem']), i: 0 }"
-                        x-init="setInterval(() => i = (i + 1) % names.length, 2400)"
-                        class="text-gradient-brand--animated"
-                        x-text="names[i]"
-                    >{{ $rotatingNames[0] ?? 'Marią Curie' }}</span>.
+                    <span class="block whitespace-nowrap">Porozmawiaj z</span>
+                    {{-- Mniejszy font (text-display-lg = max 56px) na imieniu, żeby
+                         najdłuższe nominativy ("Maria Skłodowska-Curie", "Adam Mickiewicz")
+                         zmieściły się w max 2 liniach przy realnej szerokości kolumny.
+                         min-h-[2.1em] rezerwuje miejsce na 2 linie żeby nie skakało
+                         przy zmianie krótkiej nazwy na długą. --}}
+                    <span class="text-display-lg block min-h-[2.1em]">
+                        <span
+                            x-data="{ names: @js($rotatingNames ?: ['Marią Curie', 'Józefem Piłsudskim', 'Mikołajem Kopernikiem']), i: 0 }"
+                            x-init="setInterval(() => i = (i + 1) % names.length, 2400)"
+                            class="text-gradient-brand--animated"
+                            x-text="names[i]"
+                        >{{ $rotatingNames[0] ?? 'Marią Curie' }}</span>.
+                    </span>
                 </h1>
 
                 <h2 class="text-display-md text-ink-dim mt-6">Po polsku. Bez udawania.</h2>
@@ -37,18 +47,27 @@
                     @endregistered
                 </div>
 
-                <div class="mt-16 grid grid-cols-3 gap-6 max-w-md">
+                <div class="mt-16 grid grid-cols-3 gap-8 max-w-xl">
                     <div>
                         <div class="text-display-md">{{ $totalCharacters > 0 ? $totalCharacters : '30+' }}</div>
-                        <div class="eyebrow mt-2">Postaci na start</div>
+                        <div class="mt-3 flex items-center gap-1.5 whitespace-nowrap text-[10px] uppercase tracking-wider font-semibold text-ink-dim">
+                            <span class="text-violet leading-none">●</span>
+                            Postaci na start
+                        </div>
                     </div>
                     <div>
                         <div class="text-display-md">13+</div>
-                        <div class="eyebrow mt-2">Bezpieczna platforma</div>
+                        <div class="mt-3 flex items-center gap-1.5 whitespace-nowrap text-[10px] uppercase tracking-wider font-semibold text-ink-dim">
+                            <span class="text-violet leading-none">●</span>
+                            Bezpieczna platforma
+                        </div>
                     </div>
                     <div>
                         <div class="text-display-md">0 zł</div>
-                        <div class="eyebrow mt-2">Za start</div>
+                        <div class="mt-3 flex items-center gap-1.5 whitespace-nowrap text-[10px] uppercase tracking-wider font-semibold text-ink-dim">
+                            <span class="text-violet leading-none">●</span>
+                            Za start
+                        </div>
                     </div>
                 </div>
             </div>
@@ -65,7 +84,10 @@
             </p>
             <div class="marquee">
                 <div class="marquee-track">
-                    @foreach (array_merge($marqueeNames, $marqueeNames) as $name)
+                    {{-- 4× duplikacja zapewnia, że track jest szerszy niż 2× viewport
+                         na wszystkich rozmiarach ekranu (animacja translateX(-50%)
+                         wymaga conajmniej 2× viewport żeby nie pokazywała pustki). --}}
+                    @foreach (array_merge($marqueeNames, $marqueeNames, $marqueeNames, $marqueeNames) as $name)
                         <span class="text-ink-dim text-lg whitespace-nowrap">
                             <span class="text-magenta">●</span> {{ $name }}
                         </span>
