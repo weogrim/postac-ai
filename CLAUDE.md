@@ -190,6 +190,8 @@ API mocno różni się od v2/v3 — **nie ufaj intuicji z LLMa** (trening głów
 
 **Rolldown gotcha**: `@plugin 'daisyui'` (bare) wywala build — Rolldown resolvuje przez `browser` field paczki (wskazuje `.css` plik → Node ESM loader pada). **Jawny path `daisyui/index.js`** wymagany. Nie zmieniaj bez testu builda.
 
+**Drawer = grid bez `grid-template-rows`** — `h-full` na `.drawer-content` nie działa (auto rows). Dla full-height layoutu (chat) użyj zwykłego flex (`flex h-[calc(100dvh-4rem)]`) zamiast drawera.
+
 ### Postgres / migracje / persistence
 
 - **Polimorficzny ID jako string** (NIE bigint) — User=int, Character=ULID. Dla `mediable_tables` i `taggables` ręcznie edytujemy opublikowane migracje na `string/string`. `config('mediable.ignore_migrations') => true`.
@@ -206,6 +208,7 @@ API mocno różni się od v2/v3 — **nie ufaj intuicji z LLMa** (trening głów
 - **Super-admin bypass** przez `Gate::before` w `AppServiceProvider::boot`: `Gate::before(fn (UserModel $user) => $user->hasRole('super_admin') ? true : null);`. Zero hardcoded emaili.
 - **Policies w modułach**: auto-discovery przez nazwę modelu (`CharacterModel` → strip `Model` → `CharacterPolicy`).
 - **Authz user-facing**: `abort_unless($x->user_id === auth()->id(), 404)` inline. Policy tylko dla admin/Filament.
+- **Ghost user (email NULL) UI = anonim**: `@auth`/`auth()->check()` zwracają true dla ghosta. Dla bloków UI tylko-dla-zarejestrowanych użyj `@registered` (Blade::if w `AppServiceProvider::boot`, sprawdza `isGuest()`).
 - **Shield install**: `shield:install admin` + `shield:generate --all --panel=admin --option=policies_and_permissions`. **Pomiń `shield:setup`/`shield:super-admin`** (interactive prompts → fail w no-interaction).
 
 ### Filament 5
