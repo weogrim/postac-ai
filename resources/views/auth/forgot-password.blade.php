@@ -21,12 +21,12 @@
                 autofocus
             />
 
-            <button type="submit" class="btn btn-primary mt-2 w-full">Wyślij link</button>
+            <button type="submit" class="btn-glow mt-2 w-full">Wyślij link</button>
         </form>
 
         <x-slot name="footer">
             Pamiętasz hasło?
-            <a href="{{ route('login') }}" class="link link-primary">Wróć do logowania</a>
+            <a href="{{ route('login') }}" class="text-magenta hover:underline">Wróć do logowania</a>
         </x-slot>
     </x-auth-card>
 @endsection

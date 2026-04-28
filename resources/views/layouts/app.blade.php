@@ -32,10 +32,15 @@
     @hasSection('footer')
         @yield('footer')
     @else
-        <footer class="footer footer-center bg-base-300 p-6 text-base-content/70 text-sm">
-            <aside>
+        <footer class="border-t border-line py-8 mt-auto">
+            <div class="container-app text-center text-sm text-ink-mute">
                 <p>&copy; {{ date('Y') }} postac.ai — rozmawiaj z postaciami, które kochasz.</p>
-            </aside>
+                <div class="mt-3 flex flex-wrap justify-center gap-4 text-xs">
+                    <a href="{{ route('legal.show', 'terms') }}" class="hover:text-ink-dim transition-colors">Regulamin</a>
+                    <a href="{{ route('legal.show', 'privacy') }}" class="hover:text-ink-dim transition-colors">Prywatność</a>
+                    <a href="{{ route('legal.show', 'dating-terms') }}" class="hover:text-ink-dim transition-colors">Regulamin Randki</a>
+                </div>
+            </div>
         </footer>
     @endif
 

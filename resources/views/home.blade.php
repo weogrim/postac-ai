@@ -1,13 +1,88 @@
 @extends('layouts.app')
 
 @section('content')
-    <section class="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12">
-        <header class="mb-10 text-center">
-            <h1 class="text-3xl font-bold tracking-tight sm:text-5xl">Z kim chcesz porozmawiać?</h1>
+    {{-- ========================= HERO ========================= --}}
+    <section class="relative overflow-hidden py-16 lg:py-24">
+        <div class="bg-blob"></div>
+
+        <div class="container-app relative z-10 grid gap-12 lg:grid-cols-2 lg:items-center">
+            <div>
+                <span class="eyebrow">Polska platforma AI · {{ $totalCharacters > 0 ? $totalCharacters : '30+' }} postaci po polsku</span>
+
+                <h1 class="text-display-xl mt-6">
+                    Porozmawiaj z<br>
+                    <span
+                        x-data="{ names: @js($rotatingNames ?: ['Marią Curie', 'Józefem Piłsudskim', 'Mikołajem Kopernikiem']), i: 0 }"
+                        x-init="setInterval(() => i = (i + 1) % names.length, 2400)"
+                        class="text-gradient-brand--animated"
+                        x-text="names[i]"
+                    >{{ $rotatingNames[0] ?? 'Marią Curie' }}</span>.
+                </h1>
+
+                <h2 class="text-display-md text-ink-dim mt-6">Po polsku. Bez udawania.</h2>
+
+                <p class="mt-6 max-w-prose text-ink-dim">
+                    Pierwsza polska platforma rozmów z postaciami AI. Historia, fikcja,
+                    pomoc w nauce i osobna sekcja randek — wszystko po polsku, z polską
+                    kulturą i bez NSFW. W 10 sekund od wejścia już rozmawiasz.
+                </p>
+
+                <div class="mt-8 flex flex-wrap gap-4">
+                    @registered
+                        <a href="{{ route('chat.index') }}" class="btn-glow">Twoje czaty &rarr;</a>
+                        <a href="{{ route('character.index') }}" class="btn btn-ghost">Zobacz postacie</a>
+                    @else
+                        <a href="{{ route('register') }}" class="btn-glow">Zarejestruj się &rarr;</a>
+                        <a href="{{ route('character.index') }}" class="btn btn-ghost">Zobacz postacie</a>
+                    @endregistered
+                </div>
+
+                <div class="mt-16 grid grid-cols-3 gap-6 max-w-md">
+                    <div>
+                        <div class="text-display-md">{{ $totalCharacters > 0 ? $totalCharacters : '30+' }}</div>
+                        <div class="eyebrow mt-2">Postaci na start</div>
+                    </div>
+                    <div>
+                        <div class="text-display-md">13+</div>
+                        <div class="eyebrow mt-2">Bezpieczna platforma</div>
+                    </div>
+                    <div>
+                        <div class="text-display-md">0 zł</div>
+                        <div class="eyebrow mt-2">Za start</div>
+                    </div>
+                </div>
+            </div>
+
+            <x-home.chat-preview class="lg:justify-self-end" />
+        </div>
+    </section>
+
+    {{-- ========================= MARQUEE ========================= --}}
+    @if (! empty($marqueeNames))
+        <section class="border-t border-line py-12">
+            <p class="text-center mb-6">
+                <span class="eyebrow">Postacie, które już czekają</span>
+            </p>
+            <div class="marquee">
+                <div class="marquee-track">
+                    @foreach (array_merge($marqueeNames, $marqueeNames) as $name)
+                        <span class="text-ink-dim text-lg whitespace-nowrap">
+                            <span class="text-magenta">●</span> {{ $name }}
+                        </span>
+                    @endforeach
+                </div>
+            </div>
+        </section>
+    @endif
+
+    {{-- ========================= BROWSE ========================= --}}
+    <section class="container-app py-section">
+        <header class="mb-10">
+            <h2 class="text-display-lg">Z kim chcesz porozmawiać?</h2>
             <form
                 method="GET"
                 action="{{ route('character.index') }}"
-                class="mx-auto mt-6 flex max-w-xl"
+                class="mt-6 flex max-w-xl"
                 hx-get="{{ route('character.search') }}"
                 hx-trigger="input changed delay:300ms"
                 hx-target="#popular-grid"
@@ -18,7 +93,7 @@
                     type="search"
                     name="q"
                     placeholder="🔍 szukaj postaci…"
-                    class="input input-bordered input-lg w-full"
+                    class="input input-bordered input-lg w-full bg-panel-2 border-line rounded-full"
                     autocomplete="off"
                 >
             </form>
@@ -26,11 +101,11 @@
 
         @if ($popular->isNotEmpty())
             <div class="mb-12">
-                <div class="mb-4 flex items-end justify-between">
-                    <h2 class="text-xl font-semibold">Teraz popularne</h2>
-                    <a href="{{ route('character.index') }}" class="link link-primary text-sm">Zobacz wszystkie →</a>
+                <div class="mb-6 flex items-end justify-between">
+                    <h3 class="font-display text-xl font-semibold">Teraz popularne</h3>
+                    <a href="{{ route('character.index') }}" class="text-magenta text-sm hover:underline">Zobacz wszystkie →</a>
                 </div>
-                <div id="popular-grid" class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+                <div id="popular-grid" class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     @foreach ($popular as $character)
                         <x-character-card :character="$character" />
                     @endforeach
@@ -40,12 +115,12 @@
 
         @if ($categories->isNotEmpty())
             <div class="mb-12">
-                <h2 class="mb-4 text-xl font-semibold">Kategorie</h2>
-                <div class="flex flex-wrap gap-2">
+                <h3 class="mb-4 font-display text-xl font-semibold">Kategorie</h3>
+                <div class="flex flex-wrap gap-3">
                     @foreach ($categories as $cat)
                         <a
                             href="{{ route('character.index', ['category' => $cat->slug]) }}"
-                            class="btn btn-sm btn-outline"
+                            class="btn btn-sm rounded-full bg-panel-2 border-line text-ink-dim hover:text-ink"
                         >
                             {{ $cat->name }}
                         </a>
@@ -56,8 +131,8 @@
 
         @if ($latest->isNotEmpty())
             <div class="mb-12">
-                <h2 class="mb-4 text-xl font-semibold">Nowe i ciekawe</h2>
-                <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+                <h3 class="mb-6 font-display text-xl font-semibold">Nowe i ciekawe</h3>
+                <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     @foreach ($latest as $character)
                         <x-character-card :character="$character" />
                     @endforeach
@@ -66,17 +141,17 @@
         @endif
 
         @registered
-            <div class="mt-12 rounded-2xl border border-base-300 bg-base-100 p-8 text-center">
-                <h3 class="text-lg font-semibold">Masz pomysł na własną postać?</h3>
-                <p class="mt-2 text-sm text-base-content/70">Stwórz ją i podziel się ze społecznością.</p>
-                <a href="{{ route('character.create') }}" class="btn btn-primary mt-4">➕ Stwórz swoją postać</a>
+            <div class="card-glass mt-16 p-8 text-center">
+                <h3 class="font-display text-xl font-semibold">Masz pomysł na własną postać?</h3>
+                <p class="mt-2 text-sm text-ink-dim">Stwórz ją i podziel się ze społecznością.</p>
+                <a href="{{ route('character.create') }}" class="btn-glow mt-6">Stwórz swoją postać &rarr;</a>
             </div>
         @endregistered
 
         @if ($popular->isEmpty() && $latest->isEmpty())
-            <div class="rounded-2xl border border-base-300 bg-base-100 p-10 text-center">
-                <p class="text-lg font-medium">Brak postaci</p>
-                <p class="mt-2 text-sm text-base-content/70">
+            <div class="card-glass p-10 text-center">
+                <p class="font-display text-lg font-medium">Brak postaci</p>
+                <p class="mt-2 text-sm text-ink-dim">
                     @registered
                         Stwórz swoją pierwszą postać i zacznij rozmawiać.
                     @else
@@ -85,9 +160,9 @@
                 </p>
                 <div class="mt-6">
                     @registered
-                        <a href="{{ route('character.create') }}" class="btn btn-primary">Dodaj postać</a>
+                        <a href="{{ route('character.create') }}" class="btn-glow">Dodaj postać</a>
                     @else
-                        <a href="{{ route('login') }}" class="btn btn-primary">Zaloguj</a>
+                        <a href="{{ route('login') }}" class="btn-glow">Zaloguj</a>
                     @endregistered
                 </div>
             </div>

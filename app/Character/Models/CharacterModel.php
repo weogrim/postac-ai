@@ -52,6 +52,47 @@ class CharacterModel extends Model implements MediableInterface
         'popularity_24h' => 0,
     ];
 
+    public string $initials {
+        get {
+            $name = (string) $this->getAttribute('name');
+            $words = preg_split('/\s+/u', trim($name)) ?: [];
+            $first = isset($words[0]) ? mb_substr($words[0], 0, 1) : '';
+            $second = isset($words[1]) ? mb_substr($words[1], 0, 1) : '';
+
+            return mb_strtoupper($first.$second) ?: '?';
+        }
+    }
+
+    /**
+     * Tailwind: bg-gradient-to-br from-violet to-magenta from-crimson from-cyan from-orange from-rose to-violet to-orange to-crimson
+     * (powyższy komentarz pomaga Tailwind scanner zobaczyć literały klas — patrz @source w app.css)
+     */
+    public string $avatar_gradient_class {
+        get {
+            $palette = [
+                'bg-gradient-to-br from-violet to-magenta',
+                'bg-gradient-to-br from-crimson to-magenta',
+                'bg-gradient-to-br from-cyan to-violet',
+                'bg-gradient-to-br from-orange to-crimson',
+                'bg-gradient-to-br from-rose to-magenta',
+                'bg-gradient-to-br from-cyan to-orange',
+            ];
+
+            return $palette[crc32((string) $this->getAttribute('name')) % count($palette)];
+        }
+    }
+
+    public ?string $role_label {
+        get {
+            $tag = $this->relationLoaded('tags')
+                ? ($this->tags->firstWhere('type', 'tag') ?? $this->tags->firstWhere('type', 'category'))
+                : ($this->freeTags()->first() ?? $this->categories()->first());
+
+            /** @phpstan-ignore property.notFound */
+            return $tag?->name;
+        }
+    }
+
     public function getForeignKey(): string
     {
         return 'character_id';

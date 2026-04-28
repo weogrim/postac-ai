@@ -36,7 +36,7 @@
                 required
             />
 
-            <button type="submit" class="btn btn-primary mt-2 w-full">Zapisz hasło</button>
+            <button type="submit" class="btn-glow mt-2 w-full">Zapisz hasło</button>
         </form>
     </x-auth-card>
 @endsection

@@ -12,7 +12,7 @@
         <div class="flex flex-col gap-3">
             <form method="POST" action="{{ route('verification.send') }}">
                 @csrf
-                <button type="submit" class="btn btn-primary w-full">Wyślij ponownie link</button>
+                <button type="submit" class="btn-glow w-full">Wyślij ponownie link</button>
             </form>
 
             <form method="POST" action="{{ route('logout') }}" hx-boost="false">

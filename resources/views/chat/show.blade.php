@@ -4,31 +4,27 @@
 
 @section('content')
     <div class="flex h-[calc(100dvh-4rem)] w-full">
-        <aside class="hidden w-72 shrink-0 flex-col overflow-y-auto border-r border-base-300 bg-base-100 p-3 lg:flex">
-            <div class="mb-3 flex items-center justify-between px-1">
-                <h2 class="text-sm font-semibold uppercase tracking-wide text-base-content/60">Twoje czaty</h2>
-                <a href="{{ route('home') }}" class="btn btn-ghost btn-circle btn-sm" aria-label="Nowy czat">
+        <aside class="hidden w-72 shrink-0 flex-col overflow-y-auto border-r border-line bg-panel p-3 lg:flex">
+            <div class="mb-3 flex items-center justify-between px-2">
+                <span class="text-xs font-semibold uppercase tracking-wider text-ink-mute">Twoje czaty</span>
+                <a href="{{ route('character.index') }}" class="btn btn-ghost btn-circle btn-sm" aria-label="Nowy czat">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
                     </svg>
                 </a>
             </div>
 
-            <ul class="menu menu-sm w-full gap-1">
+            <ul class="flex flex-col gap-1">
                 @foreach ($chats as $chatItem)
                     <li>
                         <a
                             href="{{ route('chat.show', $chatItem) }}"
-                            class="flex items-center gap-3 {{ $chatItem->id === $chat->id ? 'menu-active' : '' }}"
+                            class="flex items-center gap-3 rounded-xl px-2 py-2 transition-colors {{ $chatItem->id === $chat->id ? 'bg-panel-2 text-ink' : 'text-ink-dim hover:bg-panel-2/60' }}"
                         >
-                            <div class="avatar">
-                                <div class="h-10 w-10 rounded-full">
-                                    <img src="{{ $chatItem->character->avatarUrl('square') }}" alt="">
-                                </div>
-                            </div>
+                            <x-character-avatar :character="$chatItem->character" size="sm" />
                             <div class="min-w-0 flex-1">
                                 <p class="truncate text-sm font-medium">{{ $chatItem->character->name }}</p>
-                                <p class="truncate text-xs text-base-content/60">@ {{ $chatItem->character->author?->name ?? 'nieznany' }}</p>
+                                <p class="truncate text-xs text-ink-mute">@ {{ $chatItem->character->author?->name ?? 'nieznany' }}</p>
                             </div>
                         </a>
                     </li>
@@ -36,32 +32,43 @@
             </ul>
         </aside>
 
-        <div class="flex flex-1 min-w-0 flex-col">
-            <div class="mx-auto flex w-full max-w-4xl flex-1 flex-col px-4 pt-4 sm:px-6 min-h-0" data-chat data-chat-id="{{ $chat->id }}">
-                <header class="flex items-center gap-3 border-b border-base-300 pb-4">
-                    <div class="avatar">
-                        <div class="h-10 w-10 rounded-full">
-                            <img src="{{ $chat->character->avatarUrl('square') }}" alt="">
-                        </div>
-                    </div>
+        <div class="flex flex-1 min-w-0 flex-col items-center px-3 py-4 sm:px-6 lg:px-8">
+            <div class="card-glass w-full max-w-3xl flex flex-col flex-1 min-h-0 p-5 sm:p-6"
+                 data-chat data-chat-id="{{ $chat->id }}">
 
+                <header class="flex items-center gap-3 pb-4 border-b border-line">
+                    <x-character-avatar :character="$chat->character" size="sm" />
                     <div class="min-w-0">
-                        <h1 class="truncate text-base font-semibold">{{ $chat->character->name }}</h1>
-                        <p class="truncate text-xs text-base-content/60">@ {{ $chat->character->author?->name ?? 'nieznany' }}</p>
+                        <h1 class="font-semibold text-ink flex items-center gap-1.5 truncate">
+                            {{ $chat->character->name }}
+                            @if ($chat->character->is_official)
+                                <svg class="w-4 h-4 text-cyan shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
+                                </svg>
+                            @endif
+                        </h1>
+                        <p class="truncate text-xs text-ink-mute">
+                            {{ $chat->character->role_label ?? '@'.($chat->character->author?->name ?? 'nieznany') }}
+                        </p>
                     </div>
                 </header>
 
-                <div id="messages" class="flex-1 min-h-0 space-y-4 overflow-y-auto py-6">
+                <div id="messages" class="flex-1 min-h-0 overflow-y-auto space-y-3 py-6">
                     @forelse ($chat->messages as $message)
                         @include('chat._message', ['message' => $message])
                     @empty
-                        <div data-empty class="py-12 text-center text-sm text-base-content/60">
-                            Napisz pierwszą wiadomość, żeby zacząć rozmowę.
+                        <div data-empty class="py-12 text-center text-sm text-ink-mute">
+                            Powiedz cześć — {{ $chat->character->name }} czeka.
                         </div>
                     @endforelse
                 </div>
 
                 @include('chat._composer', ['chat' => $chat, 'locked' => $gateLocked ?? false])
+
+                <p class="mt-3 pt-3 border-t border-line text-xs text-ink-mute text-center">
+                    <span class="text-orange">⚠</span>
+                    To AI — odpowiedzi mogą być niedokładne. Traktuj jako rozrywkę.
+                </p>
             </div>
         </div>
     </div>

@@ -23,7 +23,7 @@ class CharacterController
     public function index(Request $request): View
     {
         $characters = $this->buildBrowseQuery($request)
-            ->with(['categories', 'media'])
+            ->with(['categories', 'media', 'tags'])
             ->paginate(24)
             ->withQueryString();
 
@@ -35,6 +35,7 @@ class CharacterController
         return view('characters.index', [
             'characters' => $characters,
             'categories' => $categories,
+            'totalCharacters' => CharacterModel::query()->regular()->count(),
             'q' => $request->string('q')->toString(),
             'category' => $request->string('category')->toString(),
             'sort' => $request->string('sort')->toString() ?: 'popular',
@@ -45,7 +46,7 @@ class CharacterController
     public function search(Request $request): View
     {
         $characters = $this->buildBrowseQuery($request)
-            ->with(['categories', 'media'])
+            ->with(['categories', 'media', 'tags'])
             ->limit(24)
             ->get();
 

@@ -60,7 +60,7 @@
                     />
                     <span class="text-sm">
                         Akceptuję
-                        <a href="{{ route('legal.show', 'terms') }}" target="_blank" class="link link-primary">regulamin</a>.
+                        <a href="{{ route('legal.show', 'terms') }}" target="_blank" class="text-magenta hover:underline">regulamin</a>.
                     </span>
                 </label>
                 @error('accepted_terms')
@@ -77,7 +77,7 @@
                     />
                     <span class="text-sm">
                         Akceptuję
-                        <a href="{{ route('legal.show', 'privacy') }}" target="_blank" class="link link-primary">politykę prywatności</a>.
+                        <a href="{{ route('legal.show', 'privacy') }}" target="_blank" class="text-magenta hover:underline">politykę prywatności</a>.
                     </span>
                 </label>
                 @error('accepted_privacy')
@@ -101,9 +101,9 @@
                 @enderror
             </fieldset>
 
-            <button type="submit" class="btn btn-primary mt-2 w-full">Zarejestruj się</button>
+            <button type="submit" class="btn-glow mt-2 w-full">Zarejestruj się</button>
 
-            <div class="divider text-xs text-base-content/60">LUB</div>
+            <div class="divider text-xs text-ink-mute">LUB</div>
 
             <a
                 href="{{ route('auth.social', 'google') }}"
@@ -122,7 +122,7 @@
 
         <x-slot name="footer">
             Masz już konto?
-            <a href="{{ route('login') }}" class="link link-primary">Zaloguj się</a>
+            <a href="{{ route('login') }}" class="text-magenta hover:underline">Zaloguj się</a>
         </x-slot>
     </x-auth-card>
 @endsection

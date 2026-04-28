@@ -14,7 +14,7 @@ class HomeController
     {
         $popular = CharacterModel::query()
             ->regular()
-            ->with(['author', 'media'])
+            ->with(['author', 'media', 'tags'])
             ->orderByDesc('is_official')
             ->orderByDesc('popularity_24h')
             ->orderByDesc('created_at')
@@ -23,7 +23,7 @@ class HomeController
 
         $latest = CharacterModel::query()
             ->regular()
-            ->with(['author', 'media'])
+            ->with(['author', 'media', 'tags'])
             ->latest()
             ->limit(6)
             ->get();
@@ -33,10 +33,24 @@ class HomeController
             ->ordered()
             ->get();
 
+        $rotatingNames = $popular->pluck('name')->all();
+
+        $marqueeNames = CharacterModel::query()
+            ->regular()
+            ->orderByDesc('popularity_24h')
+            ->limit(12)
+            ->pluck('name')
+            ->all();
+
+        $totalCharacters = CharacterModel::query()->regular()->count();
+
         return view('home', [
             'popular' => $popular,
             'latest' => $latest,
             'categories' => $categories,
+            'rotatingNames' => $rotatingNames,
+            'marqueeNames' => $marqueeNames,
+            'totalCharacters' => $totalCharacters,
         ]);
     }
 }

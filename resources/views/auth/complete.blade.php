@@ -26,7 +26,7 @@
                     />
                     <span class="text-sm">
                         Akceptuję
-                        <a href="{{ route('legal.show', 'terms') }}" target="_blank" class="link link-primary">regulamin</a>.
+                        <a href="{{ route('legal.show', 'terms') }}" target="_blank" class="text-magenta hover:underline">regulamin</a>.
                     </span>
                 </label>
                 @error('accepted_terms')
@@ -43,7 +43,7 @@
                     />
                     <span class="text-sm">
                         Akceptuję
-                        <a href="{{ route('legal.show', 'privacy') }}" target="_blank" class="link link-primary">politykę prywatności</a>.
+                        <a href="{{ route('legal.show', 'privacy') }}" target="_blank" class="text-magenta hover:underline">politykę prywatności</a>.
                     </span>
                 </label>
                 @error('accepted_privacy')
@@ -67,7 +67,7 @@
                 @enderror
             </fieldset>
 
-            <button type="submit" class="btn btn-primary mt-2 w-full">Zapisz i kontynuuj</button>
+            <button type="submit" class="btn-glow mt-2 w-full">Zapisz i kontynuuj</button>
         </form>
     </x-auth-card>
 @endsection

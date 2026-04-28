@@ -30,12 +30,12 @@
                     <input type="checkbox" name="remember" class="checkbox checkbox-sm" />
                     <span class="label-text">Zapamiętaj mnie</span>
                 </label>
-                <a href="{{ route('password.request') }}" class="link link-hover text-base-content/70">Zapomniałeś hasła?</a>
+                <a href="{{ route('password.request') }}" class="link link-hover text-ink-dim">Zapomniałeś hasła?</a>
             </div>
 
-            <button type="submit" class="btn btn-primary mt-2 w-full">Zaloguj się</button>
+            <button type="submit" class="btn-glow mt-2 w-full">Zaloguj się</button>
 
-            <div class="divider text-xs text-base-content/60">LUB</div>
+            <div class="divider text-xs text-ink-mute">LUB</div>
 
             <a
                 href="{{ route('auth.social', 'google') }}"
@@ -54,7 +54,7 @@
 
         <x-slot name="footer">
             Nie masz konta?
-            <a href="{{ route('register') }}" class="link link-primary">Zarejestruj się</a>
+            <a href="{{ route('register') }}" class="text-magenta hover:underline">Zarejestruj się</a>
         </x-slot>
     </x-auth-card>
 @endsection

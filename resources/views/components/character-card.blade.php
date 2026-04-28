@@ -1,33 +1,47 @@
 @props(['character'])
 
+@php
+    $category = $character->relationLoaded('categories')
+        ? $character->categories->first()
+        : ($character->relationLoaded('tags') ? $character->tags->firstWhere('type', 'category') : null);
+@endphp
+
 <a
     href="{{ route('character.show', $character) }}"
-    class="group relative block aspect-[3/4] overflow-hidden rounded-2xl bg-base-100 shadow-md transition duration-300 hover:-translate-y-1 hover:shadow-xl hover:ring-2 hover:ring-primary/60"
+    class="card-glass block p-5 group relative"
 >
-    <img
-        src="{{ $character->avatarUrl('square') }}"
-        alt=""
-        loading="lazy"
-        class="pointer-events-none h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
-    >
-
-    <div class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent"></div>
-
     @if ($character->is_official)
-        <span class="absolute right-2 top-2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold uppercase text-primary-content shadow">
-            Oficjalna
+        <span class="absolute right-3 top-3 inline-flex items-center gap-1 text-xs text-cyan">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
+            </svg>
         </span>
     @endif
 
-    <div class="pointer-events-none absolute inset-x-0 bottom-0 p-4 text-white">
-        <h3 class="truncate text-lg font-semibold drop-shadow-sm">{{ $character->name }}</h3>
-        @if ($character->description)
-            <p class="line-clamp-2 text-xs text-white/80">{{ $character->description }}</p>
-        @elseif (! $character->is_official && $character->author)
-            <p class="truncate text-xs text-white/70">@ {{ Str::limit($character->author->name, 22) }}</p>
+    <x-character-avatar :character="$character" size="lg" :status="true" />
+
+    <h3 class="mt-4 font-display text-lg font-semibold text-ink truncate">{{ $character->name }}</h3>
+
+    @if ($character->role_label)
+        <p class="mt-1 text-xs uppercase tracking-wider font-semibold text-ink-dim">{{ $character->role_label }}</p>
+    @endif
+
+    @if ($character->description)
+        <p class="mt-3 text-sm text-ink-dim line-clamp-3">{{ $character->description }}</p>
+    @endif
+
+    <div class="mt-5 pt-4 border-t border-line flex items-center justify-between text-xs">
+        @if ($category)
+            <span class="rounded-full px-2.5 py-1 text-ink-mute uppercase tracking-wide font-semibold">
+                {{ $category->name }}
+            </span>
+        @else
+            <span></span>
         @endif
-        @if ($character->popularity_24h > 0)
-            <p class="mt-1 text-[10px] text-white/60">{{ $character->popularity_24h }} rozmów dziś</p>
-        @endif
+
+        <span class="inline-flex items-center gap-1.5 text-ink-mute">
+            <span class="w-1.5 h-1.5 rounded-full bg-success"></span>
+            Gotowa
+        </span>
     </div>
 </a>
