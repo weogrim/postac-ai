@@ -945,9 +945,3 @@ E2E manual (po Fazie 6 — full launch readiness):
 - [ ] Backups Postgres skonfigurowane.
 - [ ] Cron daemon w kontenerze włączony (supervisor).
 - [ ] `OpenAiModerationProvider` zwraca real wyniki w prod (smoke test).
-
----
-
-## Notes
-
-Plan jest niezależny i samowystarczalny. Plany `plan-should.md` i `plan-could.md` powstaną w osobnych sesjach planowania — żadnych odniesień z plan-must do nich nie ma, każdy plan czytalny niezależnie.
