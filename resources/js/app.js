@@ -1,5 +1,7 @@
 import htmx from 'htmx.org';
 import * as Sentry from '@sentry/browser';
+import Alpine from 'alpinejs';
+import intersect from '@alpinejs/intersect';
 
 const dsn = document.querySelector('meta[name="sentry-dsn"]')?.content;
 
@@ -14,8 +16,12 @@ if (dsn) {
 
 window.htmx = htmx;
 window.Sentry = Sentry;
+window.Alpine = Alpine;
 
 htmx.config.transitions = true;
+
+Alpine.plugin(intersect);
+Alpine.start();
 
 const TOAST_DISMISS_MS = 5000;
 

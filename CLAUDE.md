@@ -16,6 +16,7 @@ Polski klon characters.ai (czat z postaciami AI). Laravel 13 / PHP 8.5 / Postgre
 - **Spatie Settings** — typowane klasy (np. `App\Chat\Settings\ChatSettings`).
 - **Cashier** + backed enum `App\Billing\Package` + price IDs przez `.env`.
 - **HTMX 4 beta** (`htmx.org@4.0.0-beta2`, https://four.htmx.org) + **Blade** + **SSE**.
+- **Alpine.js 3** + `@alpinejs/intersect` — minimalny JS reaktywny (`x-data`, `x-intersect.once`, `x-show`); HTMX dla nawigacji/form, Alpine dla efektów wizualnych i lokalnego stanu.
 - **DaisyUI 5.5.19** + **Tailwind 4.2.4** + **Vite 8.0.10**.
 - **Mailpit** (SMTP), **Adminer** (DB UI).
 - **`plank/laravel-mediable`** (nie Spatie) — warianty obrazów przez Intervention v3 + GD.
@@ -185,10 +186,11 @@ API mocno różni się od v2/v3 — **nie ufaj intuicji z LLMa** (trening głów
 
 ```css
 @import 'tailwindcss';
-@plugin 'daisyui/index.js' { themes: light --default, dark --prefersdark; }
+@plugin 'daisyui/index.js' { themes: false; logs: false; }
+@plugin 'daisyui/theme/index.js' { name: 'postac'; default: true; prefersdark: true; ... }
 ```
 
-**Rolldown gotcha**: `@plugin 'daisyui'` (bare) wywala build — Rolldown resolvuje przez `browser` field paczki (wskazuje `.css` plik → Node ESM loader pada). **Jawny path `daisyui/index.js`** wymagany. Nie zmieniaj bez testu builda.
+**Rolldown gotcha**: `@plugin 'daisyui'` (bare) i `@plugin 'daisyui/theme'` (bare) wywalają build — Rolldown resolvuje przez `browser` field paczki (wskazuje `.css` plik → Node ESM loader pada). **Jawny path `daisyui/index.js` i `daisyui/theme/index.js`** wymagany. Nie zmieniaj bez testu builda.
 
 **Drawer = grid bez `grid-template-rows`** — `h-full` na `.drawer-content` nie działa (auto rows). Dla full-height layoutu (chat) użyj zwykłego flex (`flex h-[calc(100dvh-4rem)]`) zamiast drawera.
 
@@ -240,6 +242,19 @@ API mocno różni się od v2/v3 — **nie ufaj intuicji z LLMa** (trening głów
 
 - Backend: `Integration::handles($exceptions)` w `bootstrap/app.php::withExceptions` (pierwsza linia, potem własne renderery). Bez DSN no-op. `traces_sample_rate` nieustawione — same errors.
 - Frontend: `@sentry/browser` init w `resources/js/app.js` z guardem na meta tag DSN. `tracesSampleRate: 0`. Bundle +152KB gzip.
+
+## Design system
+
+Projekt używa custom design DNA opartego o postac.ai DNA (drop-in od Łukasza). Tokeny i custom utilities są w `resources/css/app.css`. Pełna referencja: `docs/design-system/DESIGN-DNA.md` + `docs/design-system/ANIMATIONS-MAP.md`. Theme jest **dark-first** (`postac`, default + prefersdark) — nie wprowadzamy light variant bez świadomej decyzji. Fonty self-hosted w `public/fonts/postac/` (Inter, Space Grotesk, JetBrains Mono).
+
+Zasady przy tworzeniu/refactorze widoków:
+
+1. **Brand komponenty** (hero, gradient text, glass cards, glow buttons, blob backgrounds) — używamy naszych utility classes z `app.css`: `.text-gradient-brand`, `.text-gradient-warm` (Randki), `.card-glass`, `.btn-glow`, `.btn-glow-warm`, `.bg-blob`, `.marquee` + `.marquee-track`, `.reveal` + `.reveal-in`, `.swipe-deck` + `.swipe-card`, `.eyebrow`, `.nav-sticky`, `.float-slow/medium/fast`.
+2. **Tytuły**: zawsze Space Grotesk via `.text-display-xl/lg/md`. Body: zawsze Inter (default w `body` przez `--font-sans`). Mono (chat code, helper): JetBrains Mono via `font-mono`.
+3. **Formularze, alerty, dropdowny, modale, tabs, badges** → DaisyUI (`btn`, `input`, `alert`, `dropdown`, `modal`). Theme `postac` mapuje `primary` na magenta i `secondary` na violet — bez własnego override'u kolorów.
+4. **Animacje**: domyślnie pure CSS (już zdefiniowane w `app.css`). Jeśli potrzeba reaktywności — Alpine `x-data` / `x-init` / `x-intersect.once`. **Nigdy** vanilla JS dla efektów wizualnych. HTMX zostaje dla nawigacji/form/redirect.
+5. **NIE pisz inline `<style>`** w plikach Blade. Wszystko w `app.css`. Jeśli czegoś brakuje — dopisz utility do `@layer components` w `app.css`, nie inline.
+6. Każda animacja respektuje `prefers-reduced-motion: reduce` (`app.css` ma global fallback wyłączający wszystkie animacje).
 
 ## Pliki pod nadzorem
 

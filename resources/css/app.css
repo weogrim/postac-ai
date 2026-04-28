@@ -1,14 +1,512 @@
+/* ==============================================================
+   postac.ai design DNA — app.css
+   źródło: postac-design-system v1.0.0 (drop-in od Łukasza)
+   adaptacja: ścieżka fontów /fonts/postac/, jawne path w @plugin
+   (Rolldown gotcha — patrz CLAUDE.md "DaisyUI 5 + Vite 8")
+   ============================================================== */
+
+
+/* === A. Tailwind import ====================================== */
 @import 'tailwindcss';
+
+
+/* === B. DaisyUI plugin + brand theme ========================= */
 @plugin 'daisyui/index.js' {
-    themes: light --default, dark --prefersdark;
+    themes: false;
+    logs: false;
 }
 
+@plugin 'daisyui/theme/index.js' {
+    name: 'postac';
+    default: true;
+    prefersdark: true;
+    color-scheme: dark;
+
+    /* surfaces */
+    --color-base-100: oklch(0.107 0.011 271);
+    --color-base-200: oklch(0.142 0.018 274);
+    --color-base-300: oklch(0.165 0.020 274);
+    --color-base-content: oklch(0.929 0.005 286);
+
+    /* brand */
+    --color-primary: oklch(0.656 0.241 354);
+    --color-primary-content: oklch(0.97 0.01 354);
+    --color-secondary: oklch(0.633 0.260 304);
+    --color-secondary-content: oklch(0.97 0.01 304);
+    --color-accent: oklch(0.788 0.157 215);
+    --color-accent-content: oklch(0.15 0.05 215);
+    --color-neutral: oklch(0.475 0.020 272);
+    --color-neutral-content: oklch(0.929 0.005 286);
+
+    /* statusy */
+    --color-info: oklch(0.788 0.157 215);
+    --color-info-content: oklch(0.15 0.05 215);
+    --color-success: oklch(0.696 0.170 162);
+    --color-success-content: oklch(0.15 0.05 162);
+    --color-warning: oklch(0.795 0.184 86);
+    --color-warning-content: oklch(0.15 0.05 86);
+    --color-error: oklch(0.628 0.258 29);
+    --color-error-content: oklch(0.97 0.01 29);
+
+    /* radius */
+    --radius-selector: 0.75rem;
+    --radius-field: 0.625rem;
+    --radius-box: 1rem;
+
+    /* size */
+    --size-selector: 0.25rem;
+    --size-field: 0.25rem;
+    --border: 1px;
+    --depth: 1;
+    --noise: 0;
+}
+
+
+/* === @source — Tailwind class scanning na widoki Blade ======== */
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 @source '../**/*.blade.php';
 @source '../**/*.js';
 
+
+/* === C. Self-hosted fonts (×6) =============================== */
+/* Pliki w public/fonts/postac/ — separacja od public/fonts/filament/. */
+
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 300 700;
+    font-display: swap;
+    src: url('/fonts/postac/inter-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 300 700;
+    font-display: swap;
+    src: url('/fonts/postac/inter-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+    font-family: 'Space Grotesk';
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: swap;
+    src: url('/fonts/postac/space-grotesk-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+    font-family: 'Space Grotesk';
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: swap;
+    src: url('/fonts/postac/space-grotesk-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+    font-family: 'JetBrains Mono';
+    font-style: normal;
+    font-weight: 400 500;
+    font-display: swap;
+    src: url('/fonts/postac/jetbrains-mono-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+    font-family: 'JetBrains Mono';
+    font-style: normal;
+    font-weight: 400 500;
+    font-display: swap;
+    src: url('/fonts/postac/jetbrains-mono-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+
+/* === D. @theme — brand tokens ================================ */
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+    /* fonty */
+    --font-display: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+
+    /* surfaces */
+    --color-bg: oklch(0.107 0.011 271);
+    --color-panel: oklch(0.142 0.018 274);
+    --color-panel-2: oklch(0.165 0.020 274);
+    --color-line: oklch(1 0 0 / 0.08);
+
+    /* tekst */
+    --color-ink: oklch(0.929 0.005 286);
+    --color-ink-dim: oklch(0.770 0.014 273);
+    --color-ink-mute: oklch(0.475 0.020 272);
+
+    /* brand */
+    --color-violet: oklch(0.633 0.260 304);
+    --color-magenta: oklch(0.656 0.241 354);
+    --color-rose: oklch(0.658 0.231 16);
+    --color-cyan: oklch(0.788 0.157 215);
+    --color-orange: oklch(0.760 0.184 53);
+    --color-crimson: oklch(0.561 0.238 25);
+
+    /* easing */
+    --ease-spring: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --ease-glide: cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-snap: cubic-bezier(0.6, 0, 0.4, 1.4);
+
+    /* czas trwania */
+    --duration-fast: 150ms;
+    --duration-base: 300ms;
+    --duration-slow: 600ms;
+
+    /* spacing */
+    --spacing-section-y: clamp(64px, 10vw, 128px);
+    --spacing-container: 1240px;
+
+    /* skala typograficzna */
+    --text-display-xl: clamp(48px, 7vw, 88px);
+    --text-display-lg: clamp(36px, 5vw, 56px);
+    --text-display-md: clamp(24px, 3vw, 32px);
+}
+
+
+/* === E. @layer base ========================================== */
+@layer base {
+    html {
+        scroll-behavior: smooth;
+    }
+
+    body {
+        font-family: var(--font-sans);
+        color: var(--color-ink);
+        background:
+            radial-gradient(
+                ellipse at top,
+                oklch(0.165 0.05 274) 0%,
+                var(--color-bg) 50%,
+                oklch(0.07 0.005 271) 100%
+            );
+        background-attachment: fixed;
+        line-height: 1.7;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+    }
+
+    ::selection {
+        background: var(--color-magenta);
+        color: white;
+    }
+
+    :focus-visible {
+        outline: 2px solid var(--color-violet);
+        outline-offset: 2px;
+        border-radius: 4px;
+    }
+}
+
+
+/* === F. @layer components — brand patterns =================== */
+@layer components {
+
+    .text-gradient-brand {
+        background: linear-gradient(135deg,
+            var(--color-ink) 0%,
+            var(--color-violet) 60%,
+            var(--color-magenta) 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .text-gradient-warm {
+        background: linear-gradient(135deg,
+            var(--color-magenta) 0%,
+            var(--color-rose) 50%,
+            var(--color-orange) 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .text-gradient-brand--animated {
+        background: linear-gradient(135deg,
+            var(--color-ink) 0%,
+            var(--color-violet) 30%,
+            var(--color-magenta) 70%,
+            var(--color-ink) 100%);
+        background-size: 200% 200%;
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        -webkit-text-fill-color: transparent;
+    }
+    @media (prefers-reduced-motion: no-preference) {
+        .text-gradient-brand--animated {
+            animation: gradient-shift 8s ease-in-out infinite;
+        }
+    }
+
+    .card-glass {
+        background: oklch(0.142 0.018 274 / 0.6);
+        border: 1px solid var(--color-line);
+        border-radius: 1.25rem;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        transition:
+            transform var(--duration-base) var(--ease-spring),
+            box-shadow var(--duration-base) var(--ease-spring),
+            border-color var(--duration-base) var(--ease-spring);
+    }
+    .card-glass:hover {
+        transform: translateY(-4px);
+        border-color: oklch(0.633 0.260 304 / 0.4);
+        box-shadow: 0 20px 60px -20px oklch(0.633 0.260 304 / 0.3);
+    }
+
+    .btn-glow {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 1rem 2rem;
+        font-family: var(--font-display);
+        font-weight: 600;
+        font-size: 16px;
+        color: oklch(0.97 0.01 354);
+        background: linear-gradient(135deg,
+            var(--color-violet) 0%,
+            var(--color-magenta) 100%);
+        border: none;
+        border-radius: 0.75rem;
+        box-shadow: 0 8px 32px oklch(0.656 0.241 354 / 0.4);
+        cursor: pointer;
+        transition:
+            transform var(--duration-base) var(--ease-spring),
+            box-shadow var(--duration-base) var(--ease-spring);
+        text-decoration: none;
+    }
+    .btn-glow:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 40px oklch(0.656 0.241 354 / 0.55);
+    }
+    .btn-glow:active {
+        transform: translateY(0);
+    }
+    .btn-glow:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .btn-glow-warm {
+        background: linear-gradient(135deg,
+            var(--color-magenta) 0%,
+            var(--color-rose) 100%);
+        box-shadow: 0 8px 32px oklch(0.658 0.231 16 / 0.4);
+    }
+    .btn-glow-warm:hover {
+        box-shadow: 0 12px 40px oklch(0.658 0.231 16 / 0.55);
+    }
+
+    .bg-blob {
+        position: absolute;
+        inset: 0;
+        background:
+            radial-gradient(ellipse 40% 30% at 20% 30%,
+                oklch(0.633 0.260 304 / 0.25), transparent 60%),
+            radial-gradient(ellipse 35% 35% at 80% 70%,
+                oklch(0.656 0.241 354 / 0.20), transparent 60%);
+        pointer-events: none;
+        z-index: 0;
+    }
+    @media (prefers-reduced-motion: no-preference) {
+        .bg-blob {
+            animation: blob-drift 18s ease-in-out infinite;
+        }
+    }
+
+    .marquee {
+        display: flex;
+        overflow: hidden;
+        width: 100%;
+        mask-image: linear-gradient(to right,
+            transparent 0,
+            black 8%,
+            black 92%,
+            transparent 100%);
+        -webkit-mask-image: linear-gradient(to right,
+            transparent 0,
+            black 8%,
+            black 92%,
+            transparent 100%);
+    }
+    .marquee-track {
+        display: flex;
+        gap: 2.5rem;
+        white-space: nowrap;
+        flex-shrink: 0;
+        padding-right: 2.5rem;
+        align-items: center;
+    }
+    @media (prefers-reduced-motion: no-preference) {
+        .marquee-track {
+            animation: marquee-scroll 32s linear infinite;
+        }
+    }
+
+    .reveal {
+        opacity: 0;
+        transform: translateY(30px);
+        transition:
+            opacity 800ms var(--ease-spring),
+            transform 800ms var(--ease-spring);
+    }
+    .reveal-in {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    .swipe-deck {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 3 / 4;
+        max-width: 320px;
+    }
+    .swipe-card {
+        position: absolute;
+        inset: 0;
+        border-radius: 1.5rem;
+        overflow: hidden;
+        transition:
+            transform 500ms var(--ease-spring),
+            opacity 500ms var(--ease-spring);
+        background: linear-gradient(135deg,
+            var(--color-magenta),
+            var(--color-rose),
+            var(--color-violet));
+    }
+    .swipe-top   { z-index: 3; }
+    .swipe-back  {
+        transform: scale(0.96) translateY(12px);
+        opacity: 0.85;
+        z-index: 2;
+    }
+    .swipe-bottom {
+        transform: scale(0.92) translateY(24px);
+        opacity: 0.6;
+        z-index: 1;
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+        .float-slow   { animation: float 8s ease-in-out infinite; }
+        .float-medium { animation: float 6s ease-in-out infinite; }
+        .float-fast   { animation: float 4s ease-in-out infinite; }
+    }
+
+    .nav-sticky {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        background: oklch(0.107 0.011 271 / 0.8);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-bottom: 1px solid var(--color-line);
+    }
+
+    .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 6px 14px;
+        border: 1px solid var(--color-line);
+        border-radius: 999px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--color-ink-dim);
+    }
+    .eyebrow::before {
+        content: '';
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        background: var(--color-violet);
+    }
+}
+
+
+/* === G. @layer utilities ===================================== */
+@layer utilities {
+
+    .text-display-xl {
+        font-family: var(--font-display);
+        font-size: var(--text-display-xl);
+        font-weight: 700;
+        line-height: 1.05;
+        letter-spacing: -0.02em;
+    }
+    .text-display-lg {
+        font-family: var(--font-display);
+        font-size: var(--text-display-lg);
+        font-weight: 700;
+        line-height: 1.1;
+        letter-spacing: -0.02em;
+    }
+    .text-display-md {
+        font-family: var(--font-display);
+        font-size: var(--text-display-md);
+        font-weight: 600;
+        line-height: 1.2;
+        letter-spacing: -0.01em;
+    }
+
+    .py-section {
+        padding-top: var(--spacing-section-y);
+        padding-bottom: var(--spacing-section-y);
+    }
+
+    .container-app {
+        max-width: var(--spacing-container);
+        margin-inline: auto;
+        padding-inline: clamp(16px, 4vw, 32px);
+    }
+}
+
+
+/* === H. @keyframes =========================================== */
+@keyframes blob-drift {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33%      { transform: translate(40px, -30px) scale(1.05); }
+    66%      { transform: translate(-30px, 25px) scale(0.97); }
+}
+
+@keyframes marquee-scroll {
+    to { transform: translateX(-50%); }
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50%      { transform: translateY(-12px) rotate(3deg); }
+}
+
+@keyframes gradient-shift {
+    0%, 100% { background-position: 0% 50%; }
+    50%      { background-position: 100% 50%; }
+}
+
+
+/* === I. Reduced-motion fallback ============================== */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+    }
+    .reveal {
+        opacity: 1;
+        transform: none;
+    }
 }
