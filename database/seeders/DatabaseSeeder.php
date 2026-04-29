@@ -111,10 +111,6 @@ class DatabaseSeeder extends Seeder
 
     private function seedSampleData(UserModel $admin): void
     {
-        if (! app()->environment('local', 'testing')) {
-            return;
-        }
-
         $users = UserModel::factory(4)->create()->push($admin);
 
         $official = [
@@ -188,10 +184,6 @@ class DatabaseSeeder extends Seeder
 
     private function seedDatingProfiles(UserModel $admin): void
     {
-        if (! app()->environment('local', 'testing')) {
-            return;
-        }
-
         $profiles = [
             [
                 'name' => 'Maja',
