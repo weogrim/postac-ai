@@ -9,3 +9,21 @@
 /.github export-ignore
 CHANGELOG.md export-ignore
 .styleci.yml export-ignore
+
+# Wymusza uniksowe końcówki linii (LF) dla wszystkich plików tekstowych
+* text=auto eol=lf
+
+# (Opcjonalnie) Jeśli masz w repozytorium specyficzne skrypty, 
+# możesz upewnić się na 100%, że zawsze będą miały LF:
+*.sh text eol=lf
+*.bash text eol=lf
+
+# Wskazanie Gitowi, żeby nie ruszał plików binarnych (jak grafiki, fonty)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.ttf binary
+*.woff binary
+*.woff2 binary
